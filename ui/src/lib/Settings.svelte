@@ -163,11 +163,12 @@
 
   async function cloudLogin(register) {
     try {
-      if (register && !(await api.cloud_register(cEmail, cPass))) {
+      if (register === 'google') await api.cloud_login_google()
+      else if (register && !(await api.cloud_register(cEmail, cPass))) {
         notify(t('Fast fertig: Bestätige deine E-Mail über den Link im Postfach und melde dich dann hier an.'))
         return
       }
-      if (!register) await api.cloud_login(cEmail, cPass)
+      else if (!register) await api.cloud_login(cEmail, cPass)
       cPass = ''
       await load()
       await cloudSync()
@@ -421,6 +422,7 @@
         <input type="password" bind:value={cPass} placeholder={t('Passwort')} autocomplete="current-password" aria-label={t('Passwort fürs Muisti-Konto')} />
         <button type="submit" disabled={!cEmail || !cPass}>{t('Anmelden')}</button>
         <button type="button" class="ghost" disabled={!cEmail || cPass.length < 8} onclick={() => cloudLogin(true)}>{t('Konto erstellen')}</button>
+        <button type="button" class="ghost" onclick={() => cloudLogin('google')}>{t('Weiter mit Google')}</button>
       </form>
       <p class="muted small">{t('Passwort mit mindestens 8 Zeichen. Gespeichert wird nur ein Anmeldeschlüssel.')}</p>
     {/if}

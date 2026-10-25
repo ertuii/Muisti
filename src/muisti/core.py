@@ -540,6 +540,11 @@ class Core:
             raise ValueError("Bitte zuerst von AnkiWeb abmelden: beide Synchronisierungen zusammen bringen den Lernstand durcheinander.")
         self._cloud().login(email.strip(), password)
 
+    def cloud_login_google(self) -> None:
+        if self.sync_account():
+            raise ValueError("Bitte zuerst von AnkiWeb abmelden: beide Synchronisierungen zusammen bringen den Lernstand durcheinander.")
+        self._cloud().login_google()
+
     def cloud_register(self, email: str, password: str) -> bool:
         """True: signed in. False: Supabase sent a confirmation mail first, sign in afterwards."""
         if self.sync_account():

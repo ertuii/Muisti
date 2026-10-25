@@ -16,6 +16,13 @@
     'User already registered': 'Für diese E-Mail gibt es schon ein Konto. Melde dich an.',
   }
 
+  async function google() {
+    busy = true
+    // back to this exact address (keeps /oauth/consent?…); supabase-js picks the session up from the URL on load
+    const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.href } })
+    if (error) { message = { text: error.message, error: true }; busy = false }
+  }
+
   async function submit(e) {
     e.preventDefault()
     busy = true
@@ -47,6 +54,9 @@
         autocomplete={mode === 'register' ? 'new-password' : 'current-password'} /></label>
     {/if}
     <button type="submit" disabled={busy}>{busy ? t('Einen Moment …') : mode === 'register' ? t('Konto erstellen') : mode === 'reset' ? t('Link schicken') : t('Anmelden')}</button>
+    {#if mode !== 'reset'}
+      <button type="button" class="google" onclick={google} disabled={busy}>{t('Weiter mit Google')}</button>
+    {/if}
     {#if message}<p class:error={message.error} role="status">{message.text}</p>{/if}
     <div class="links">
       {#if mode === 'login'}
@@ -66,6 +76,7 @@
   p { margin: 0; }
   label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 500; color: var(--ink-2); }
   input { width: 100%; }
+  .google { background: transparent; color: var(--ink); border: 1px solid var(--rule); }
   .error { color: var(--m-red); }
   .links { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px; margin-left: -8px; }
 </style>

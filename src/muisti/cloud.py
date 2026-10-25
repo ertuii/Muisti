@@ -83,6 +83,45 @@ class Account:
         self._store_session(_http("POST", "/auth/v1/token?grant_type=password", {"email": email, "password": password}))
         return email
 
+    def login_google(self, timeout: int = 300) -> str:
+        """Sign in with Google in the system browser (PKCE), Supabase sends the code back to a one-off local port."""
+        import base64
+        import hashlib
+        import webbrowser
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+
+        verifier = secrets.token_urlsafe(48)
+        challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+        got = {}
+
+        class Back(BaseHTTPRequestHandler):
+            def do_GET(self):
+                got.update(urllib.parse.parse_qsl(urllib.parse.urlsplit(self.path).query))
+                body = ("<meta charset=utf-8><body style='font:16px system-ui;padding:40px'>"
+                        "Angemeldet. Du kannst dieses Fenster schließen und zu Muisti zurückkehren.").encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *a):
+                pass
+
+        srv = HTTPServer(("127.0.0.1", 0), Back)
+        srv.timeout = timeout
+        q = urllib.parse.urlencode({"provider": "google", "redirect_to": f"http://127.0.0.1:{srv.server_address[1]}/",
+                                    "code_challenge": challenge, "code_challenge_method": "s256"})
+        webbrowser.open(f"{URL}/auth/v1/authorize?{q}")
+        try:
+            srv.handle_request()  # ponytail: one request; a stray favicon hit first just means "try again"
+        finally:
+            srv.server_close()
+        if "code" not in got:
+            raise CloudError(got.get("error_description") or "Google-Anmeldung abgebrochen oder abgelaufen.")
+        s = _http("POST", "/auth/v1/token?grant_type=pkce", {"auth_code": got["code"], "code_verifier": verifier})
+        self._store_session(s)
+        return s["user"]["email"]
+
     def register(self, email: str, password: str) -> bool:
         """True if signed in right away, False if Supabase first sends a confirmation mail."""
         s = _http("POST", "/auth/v1/signup", {"email": email, "password": password})

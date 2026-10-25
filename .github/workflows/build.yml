@@ -27,6 +27,7 @@ jobs:
       - run: uv run python tests/test_phase5.py
       - run: uv run python tests/test_phase6.py
       - run: uv run python tests/test_connector.py
+      - run: uv run python tests/test_google_login.py
       - run: uv run python tests/test_updater.py
       - run: uv run python tests/test_cloud.py
         env: { MUISTI_TEST_EMAIL: "${{ secrets.MUISTI_TEST_EMAIL }}", MUISTI_TEST_PASSWORD: "${{ secrets.MUISTI_TEST_PASSWORD }}" }
