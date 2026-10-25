@@ -699,5 +699,7 @@
  "Zugriff entzogen": "Access revoked",
  "Einmal einrichten, dann kann Claude deine Karten anlegen, durchsuchen und bearbeiten. Frag danach einfach: „Erstelle 10 Karten zu Integralrechnung im Stapel Analysis II.“": "Set it up once, then Claude can create, search and edit your cards. Afterwards just ask: “Create 10 cards on integration in the deck Analysis II.”",
  "Mit deinem Muisti-Konto geht Claude auch online, im Browser und auf dem Handy: In Claude unter Einstellungen → Konnektoren einen eigenen Konnektor mit dieser Adresse hinzufügen. Nutze in Claude nur eins von beidem: Die Verbindung hier meint die Sammlung auf diesem Laptop, die online dein Konto. Trenne dann hier Claude Desktop und Claude Code.": "With your Muisti account, Claude also works online, in the browser and on your phone: in Claude, add a custom connector with this address under Settings → Connectors. Use only one of the two in Claude: the connection here means the collection on this laptop, the online one your account. Then disconnect Claude Desktop and Claude Code here.",
- "Weiter mit Google": "Continue with Google"
+ "Weiter mit Google": "Continue with Google",
+ "Impressum": "Legal notice",
+ "Datenschutz": "Privacy"
 }

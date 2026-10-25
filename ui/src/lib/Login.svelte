@@ -66,6 +66,7 @@
         <button type="button" class="plain" onclick={() => (mode = 'login')}>{t('Zurück zur Anmeldung')}</button>
       {/if}
     </div>
+    <p class="legal"><a href="https://muisti.de/impressum.html" target="_blank" rel="noopener">{t('Impressum')}</a> · <a href="https://muisti.de/datenschutz.html" target="_blank" rel="noopener">{t('Datenschutz')}</a></p>
   </form>
 </main>
 
@@ -78,5 +79,7 @@
   input { width: 100%; }
   .google { background: transparent; color: var(--ink); border: 1px solid var(--rule); }
   .error { color: var(--m-red); }
+  .legal { font-size: 12px; color: var(--ink-3); text-align: center; margin-top: 12px; }
+  .legal a { color: inherit; }
   .links { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px; margin-left: -8px; }
 </style>

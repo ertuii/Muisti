@@ -1,0 +1,15 @@
+/* Impressum and Datenschutz: same paper and ink as index.html, nothing else */
+@font-face{font-family:Archivo;font-style:normal;font-display:swap;font-weight:100 900;src:url(fonts/archivo-latin-wght-normal.woff2) format('woff2-variations')}
+:root{--paper:#fbfaf7;--ink:#1c1d21;--ink-2:#5d5b55;--ink-3:#77746c;--rule:#dcd9d1;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--paper:#17181b;--ink:#ecebe6;--ink-2:#a9a69e;--ink-3:#8c8981;--rule:#2f3035;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 16px/1.6 Archivo,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:68ch;margin:0 auto;padding:40px 16px 64px}
+a{color:inherit;text-underline-offset:.2em;text-decoration-thickness:1px}
+.back{font-size:14px;color:var(--ink-2);text-decoration:none}
+h1{font-size:32px;font-weight:750;letter-spacing:-.02em;margin:24px 0 8px}
+h2{font-size:17px;font-weight:700;margin:32px 0 6px}
+p,ul{margin:0 0 10px;color:var(--ink-2)}
+ul{padding-left:20px}
+b{color:var(--ink);font-weight:600}
+.meta{margin-top:40px;padding-top:16px;border-top:1px solid var(--rule);font-size:14px;color:var(--ink-3)}

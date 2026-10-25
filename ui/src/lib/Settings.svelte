@@ -603,6 +603,7 @@
       <button class="ghost sm" disabled={checking} onclick={lookForUpdate}>{checking ? t('Suche …') : t('Nach Updates suchen')}</button>
     </div>
     <p class="muted small">{web ? t('Gibt es eine neue Version, erscheint links „Aktualisieren“: ein Klick lädt die Seite neu.') : t('Die App sucht beim Start selbst nach neuen Versionen. Deine Karten bleiben beim Update unberührt.')}</p>
+    <p class="muted small"><a href="https://muisti.de/impressum.html" target="_blank" rel="noopener">{t('Impressum')}</a> · <a href="https://muisti.de/datenschutz.html" target="_blank" rel="noopener">{t('Datenschutz')}</a></p>
   </section>
 </div>
 
