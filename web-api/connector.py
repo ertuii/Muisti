@@ -47,7 +47,7 @@ class Verifier:
 mcp = mcp_server.mcp
 mcp._lowlevel_server.instructions = (
     "Muisti online: the user's Muisti account, the same collection as the web app and every synced device. "
-    "If a second Muisti connector (on this computer) is also available, use only one of them in a conversation; "
+    "A second Muisti connector (on this computer) holds the same cards; "
     "changes reach the desktop app only after its next sync (up to 5 minutes).")
 mcp_server.call = call  # the tools look `call` up at call time
 for name in WEB_TOOLS_OFF:
@@ -57,8 +57,8 @@ for name in WEB_TOOLS_OFF:
 @mcp.tool()
 def add_media(filename: str, url: str | None = None, data_base64: str | None = None) -> str:
     """Store an image or audio file (e.g. a diagram) in the collection's media folder.
-    Give exactly one source: an http(s) URL or base64 data. filename sets the name and extension.
-    Returns the stored file name (may differ if the name was taken); use it as <img src="NAME"> or [sound:NAME] in a field."""
+    Exactly one source: an http(s) URL or base64 data. filename sets the name and extension.
+    Returns the stored file name (may differ if the name was taken), for <img src="NAME"> or [sound:NAME] in a field."""
     return mcp_server.add_media(filename, url=url, data_base64=data_base64)
 
 

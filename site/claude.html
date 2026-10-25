@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Muisti for Claude – Connector</title>
+<meta name="description" content="Connect Claude to your Muisti flashcards: create cards, find weak spots and plan for exams.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="legal.css">
+</head>
+<body>
+<main>
+<a class="back" href="./">← Muisti</a>
+<h1>Muisti for Claude</h1>
+<p>Muisti is a spaced-repetition flashcard app built on Anki's engine (SM-2/FSRS, .apkg files, Anki search syntax). The Muisti connector lets Claude work with the cards in your Muisti account: write new cards, search and edit existing ones, and look at your study statistics.</p>
+
+<h2>Requirements</h2>
+<ul>
+<li>A Muisti account. Sign up with email or Google at <a href="https://app.muisti.de">app.muisti.de</a>.</li>
+<li>Claude on the web, desktop or mobile.</li>
+</ul>
+
+<h2>Connect</h2>
+<ul>
+<li>In Claude, open <b>Settings → Connectors</b> and add <b>Muisti</b>, or add a custom connector with the URL <b>https://app.muisti.de/mcp</b>.</li>
+<li>Click <b>Connect</b>, sign in to Muisti and approve access.</li>
+<li>To disconnect, remove the connector in Claude. Your cards stay in Muisti.</li>
+</ul>
+
+<h2>What Claude can do</h2>
+<h3>Create cards</h3>
+<p><b>add_notes</b> adds basic, cloze or other note types in bulk, with HTML and LaTeX formulas. <b>add_media</b> stores an image or audio file for a card. <b>list_note_types</b> shows the available note types and their fields. <b>create_deck</b> and <b>rename_deck</b> manage decks.</p>
+<p>Cards Claude creates go to an <b>inbox</b> and stay suspended until you accept, edit or discard them in Muisti. <b>list_inbox</b> lists them. You can turn the inbox off in Muisti's settings.</p>
+<h3>Find and edit</h3>
+<p><b>search_cards</b> (full Anki search syntax), <b>get_note</b>, <b>update_note</b>, <b>delete_notes</b>, <b>suspend_cards</b>, <b>reset_cards</b>, <b>card_info</b>.</p>
+<h3>Study insights</h3>
+<p><b>list_decks</b> and <b>collection_stats</b> show what is due. <b>review_statistics</b> covers reviews, forecast, intervals and retention. <b>difficult_cards</b> lists cards you keep forgetting, and <b>weak_spots</b> shows retention per deck and tag. <b>exam_plan</b> shows the new cards per day needed for the exam dates you set. <b>create_filtered_deck</b> gathers cards into a temporary deck for cramming.</p>
+
+<h2>Example prompts</h2>
+<ul>
+<li>"Turn these lecture notes into cloze cards in my Biochemistry deck."</li>
+<li>"Which topics am I weakest in, and which cards do I keep forgetting?"</li>
+<li>"Rewrite the cards I keep forgetting so they stick."</li>
+<li>"My Pharmacology exam is on 12 December. How many new cards per day do I need?"</li>
+<li>"Make a cramming deck with all due cards tagged 'enzymes'."</li>
+</ul>
+
+<h2>Data and privacy</h2>
+<p>The connector only reads and writes the cards of the signed-in account. Each account sees only its own data. Claude's requests are processed only to run the tool that was called, and Muisti does not store your conversations. Details are in the <a href="datenschutz.html">privacy policy</a> (German).</p>
+
+<h2>Desktop app</h2>
+<p>The Muisti desktop app for macOS and Windows has its own local connector, which also reads the card you are studying right now and imports or exports files. Set it up under <b>Settings → Connect Claude</b> in the app.</p>
+
+<h2>Support</h2>
+<p>Questions or problems: <a href="mailto:info@evrloom.de">info@evrloom.de</a> or <a href="https://github.com/ertuii/Muisti/issues">GitHub issues</a>.</p>
+
+<p class="meta"><a href="impressum.html">Impressum</a> · <a href="datenschutz.html">Datenschutz</a></p>
+</main>
+</body>
+</html>

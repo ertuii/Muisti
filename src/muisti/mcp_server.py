@@ -15,8 +15,8 @@ from .server import INFO_FILE
 # the user may also have the web connector (web-api/connector.py) in the same Claude: say which collection this is
 mcp = MCPServer("Muisti", instructions=(
     "Muisti on this computer: the collection in the desktop app on this laptop. If a second Muisti connector (online) "
-    "is also available, use only one of them in a conversation; changes reach the other side only after the app's "
-    "next sync (up to 5 minutes), so a card just made through one may not be found through the other yet."))
+    "is also available, it holds the same cards; changes reach the other side only after the app's "
+    "next sync (up to 5 minutes)."))
 _open_lock = threading.Lock()  # tool calls run in parallel threads; the collection opens once at a time
 
 
@@ -61,7 +61,7 @@ def rename_deck(deck_id: int, name: str) -> None:
 
 @mcp.tool()
 def list_note_types() -> list[dict]:
-    """Note types with their field names. Use these names as keys in add_notes."""
+    """Note types with their field names (the keys of a note's "fields")."""
     return call("note_types")
 
 
@@ -69,9 +69,9 @@ def list_note_types() -> list[dict]:
 def add_notes(notes: list[dict]) -> list:
     """Add notes in bulk. Each note: {"deck": "Deck::Name", "notetype": "Basic", "fields": {"Front": "...", "Back": "..."}, "tags": ["a"]}.
     Fields may contain HTML. For cloze use notetype "Cloze" with {"Text": "{{c1::Berlin}} ist die Hauptstadt"}.
-    Images/audio: store them with add_media first, then use <img src="NAME"> or [sound:NAME] in a field.
+    Images/audio: a stored media file appears in a field as <img src="NAME"> or [sound:NAME].
     A note whose first field already exists in a note of the same type is rejected as a duplicate (the error names
-    that note, so you can update it instead); set "allow_duplicate": true only if the user wants it twice.
+    that note); "allow_duplicate": true skips this check.
     Unless the user turned it off, new notes wait in the app's inbox ("Eingang") until the user accepts them.
     Returns the new note id, or an error string, per note."""
     results = []
@@ -87,8 +87,8 @@ def add_notes(notes: list[dict]) -> list:
 @mcp.tool()
 def add_media(filename: str, path: str | None = None, url: str | None = None, data_base64: str | None = None) -> str:
     """Store an image or audio file (e.g. a diagram from a PDF) in the collection's media folder.
-    Give exactly one source: an absolute local path, an http(s) URL, or base64 data. filename sets the name and extension.
-    Returns the stored file name (may differ if the name was taken); use it as <img src="NAME"> or [sound:NAME] in a field."""
+    Exactly one source: an absolute local path, an http(s) URL, or base64 data. filename sets the name and extension.
+    Returns the stored file name (may differ if the name was taken), for <img src="NAME"> or [sound:NAME] in a field."""
     if path:
         if not Path(path).is_file():
             raise ValueError(f"no such file: {path}")
@@ -106,8 +106,7 @@ def add_media(filename: str, path: str | None = None, url: str | None = None, da
 @mcp.tool()
 def current_card() -> dict | None:
     """The card the user is studying in the app right now: fields, rendered question/answer text, deck, lapses.
-    Use it when the user says "this card" ("explain this", "make this card better"). null if they aren't studying.
-    Change it with update_note only after the user agrees; the study screen shows the new version right away."""
+    null if they aren't studying. Edits to this note show on the study screen right away."""
     return call("current_card")
 
 
@@ -119,8 +118,7 @@ def list_inbox() -> list[dict]:
 
 @mcp.tool()
 def difficult_cards(deck: str | None = None, limit: int = 20) -> list[dict]:
-    """Cards the user keeps forgetting (2+ lapses or leech), most lapses first, with full fields.
-    Use to suggest better wording, splitting, cloze or mnemonics; change them with update_note only after the user agrees."""
+    """Cards the user keeps forgetting (2+ lapses or leech), most lapses first, with full fields."""
     return call("difficult_cards", deck=deck, limit=limit)
 
 
@@ -168,7 +166,7 @@ def suspend_cards(card_ids: list[int], suspended: bool = True) -> None:
 
 @mcp.tool()
 def reset_cards(card_ids: list[int]) -> int:
-    """Reset cards to new (forget their study progress). Only on the user's explicit request."""
+    """Reset cards to new, erasing their study progress."""
     return call("forget_cards", card_ids=card_ids)
 
 
@@ -199,7 +197,7 @@ def create_filtered_deck(name: str, search: str, limit: int = 100) -> int:
 
 @mcp.tool()
 def import_file(path: str) -> str:
-    """Import an .apkg or .csv/.txt/.tsv file from an absolute path. (.colpkg replaces the whole collection: only on explicit user request.)"""
+    """Import an .apkg or .csv/.txt/.tsv file from an absolute path. A .colpkg replaces the whole collection."""
     return call("import_file", path=path)
 
 
