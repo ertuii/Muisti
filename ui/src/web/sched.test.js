@@ -91,4 +91,7 @@ test('days since creation with a 4 o\'clock rollover', () => {
   assert.equal(timing(crt, 4, new Date(2026, 0, 10, 23).getTime() / 1000).today, 0)
   assert.equal(timing(crt, 4, new Date(2026, 0, 11, 3).getTime() / 1000).today, 0) // before 4:00: still yesterday
   assert.equal(timing(crt, 4, new Date(2026, 0, 11, 5).getTime() / 1000).today, 1)
+  // crt isn't shifted by the rollover: 4:00 crt, rollover 7 → day 1 from 7:00 the next day (as Anki)
+  assert.equal(timing(crt, 7, new Date(2026, 0, 11, 6).getTime() / 1000).today, 0)
+  assert.equal(timing(crt, 7, new Date(2026, 0, 11, 8).getTime() / 1000).today, 1)
 })

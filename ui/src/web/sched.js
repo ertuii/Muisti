@@ -7,13 +7,16 @@ import { fsrs, Rating, State, StrategyMode, ConvertStepUnitToMinutes } from 'ts-
 
 const DAY = 86400
 
-/** Anki's day numbering: local calendar days since crt, each day starting at `rollover` o'clock. */
+/**
+ * Anki's day numbering (sched_timing_today): calendar days from crt's date to now's, minus one before `rollover`
+ * o'clock. Only now is shifted by the rollover, not crt (a 4:00 crt with rollover 7 is still that day).
+ */
 export function timing(crt, rollover = 4, now = Date.now() / 1000) {
   const dayNo = (ts) => {
-    const d = new Date((ts - rollover * 3600) * 1000)
+    const d = new Date(ts * 1000)
     return Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / DAY / 1000)
   }
-  const today = dayNo(now) - dayNo(crt)
+  const today = Math.max(0, dayNo(now - rollover * 3600) - dayNo(crt))
   const next = new Date(now * 1000)
   next.setHours(rollover, 0, 0, 0)
   if (next.getTime() / 1000 <= now) next.setDate(next.getDate() + 1)
