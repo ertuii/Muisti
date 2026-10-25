@@ -8,8 +8,10 @@ main{max-width:68ch;margin:0 auto;padding:40px 16px 64px}
 a{color:inherit;text-underline-offset:.2em;text-decoration-thickness:1px}
 .back{font-size:14px;color:var(--ink-2);text-decoration:none}
 h1{font-size:32px;font-weight:750;letter-spacing:-.02em;margin:24px 0 8px}
-h2{font-size:17px;font-weight:700;margin:32px 0 6px}
-p,ul{margin:0 0 10px;color:var(--ink-2)}
+h2{font-size:20px;font-weight:750;margin:40px 0 8px}
+h3{font-size:16px;font-weight:700;margin:24px 0 6px}
+h4{font-size:15px;font-weight:600;margin:16px 0 4px}
+p,ul{overflow-wrap:break-word;margin:0 0 10px;color:var(--ink-2)}
 ul{padding-left:20px}
 b{color:var(--ink);font-weight:600}
 .meta{margin-top:40px;padding-top:16px;border-top:1px solid var(--rule);font-size:14px;color:var(--ink-3)}
