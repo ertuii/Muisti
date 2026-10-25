@@ -683,5 +683,20 @@
  "Sammlung liegt jetzt in {path}. Die alte Kopie in {old} kannst du löschen.": "La colección está ahora en {path}. Puedes borrar la copia antigua en {old}.",
  "Sammlung liegt jetzt in {path}": "La colección está ahora en {path}",
  "Kein Lückentext gefunden: markiere etwas mit {{c1::…}}.": "No se encontró ningún hueco: marca algo con {{c1::…}}.",
- "Diese Felder ergeben keine Karte.": "Estos campos no generan ninguna tarjeta."
+ "Diese Felder ergeben keine Karte.": "Estos campos no generan ninguna tarjeta.",
+ "Diese Anfrage ist unvollständig. Starte die Verbindung in Claude neu.": "Esta solicitud está incompleta. Vuelve a iniciar la conexión en Claude.",
+ "Verbindung nicht möglich": "No se puede conectar",
+ "{name} mit Muisti verbinden?": "¿Conectar {name} con Muisti?",
+ "{name} kann dann deine Stapel und Karten sehen, neue Karten anlegen und bestehende bearbeiten. Neue Karten warten im Eingang, bis du sie übernimmst.": "{name} podrá ver tus mazos y tarjetas, crear tarjetas nuevas y editar las existentes. Las tarjetas nuevas esperan en la bandeja de entrada hasta que las aceptes.",
+ "Angemeldet als {email}. Du kannst den Zugriff jederzeit in den Einstellungen entziehen.": "Sesión iniciada como {email}. Puedes retirar el acceso en Ajustes en cualquier momento.",
+ "Zulassen": "Permitir",
+ "Ablehnen": "Rechazar",
+ "Öffne in Claude (claude.ai oder die App) Einstellungen → Konnektoren → Eigenen Konnektor hinzufügen.": "En Claude (claude.ai o la app), abre Ajustes → Conectores → Añadir conector personalizado.",
+ "Gib als Namen „Muisti“ ein und füge diese Adresse ein:": "Ponle el nombre «Muisti» y pega esta dirección:",
+ "Adresse kopieren": "Copiar dirección",
+ "Melde dich mit deinem Muisti-Konto an und tippe auf „Zulassen“. Danach geht es auch in der Claude-App auf dem Handy.": "Inicia sesión con tu cuenta de Muisti y toca «Permitir». Después también funciona en la app de Claude en el móvil.",
+ "Zugriff entziehen": "Retirar acceso",
+ "Zugriff entzogen": "Acceso retirado",
+ "Einmal einrichten, dann kann Claude deine Karten anlegen, durchsuchen und bearbeiten. Frag danach einfach: „Erstelle 10 Karten zu Integralrechnung im Stapel Analysis II.“": "Configúralo una vez y Claude podrá crear, buscar y editar tus tarjetas. Luego solo pide: «Crea 10 tarjetas sobre integrales en el mazo Análisis II».",
+ "Mit deinem Muisti-Konto geht Claude auch online, im Browser und auf dem Handy: In Claude unter Einstellungen → Konnektoren einen eigenen Konnektor mit dieser Adresse hinzufügen. Nutze in Claude nur eins von beidem: Die Verbindung hier meint die Sammlung auf diesem Laptop, die online dein Konto. Trenne dann hier Claude Desktop und Claude Code.": "Con tu cuenta de Muisti, Claude también funciona en línea, en el navegador y en el móvil: en Claude, añade un conector personalizado con esta dirección en Ajustes → Conectores. Usa solo una de las dos en Claude: la conexión de aquí se refiere a la colección de este portátil, la de en línea a tu cuenta. En ese caso, desconecta aquí Claude Desktop y Claude Code."
 }

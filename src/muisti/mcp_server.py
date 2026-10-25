@@ -12,7 +12,11 @@ from mcp.server import MCPServer
 from .core import Core
 from .server import INFO_FILE
 
-mcp = MCPServer("Muisti")
+# the user may also have the web connector (web-api/connector.py) in the same Claude: say which collection this is
+mcp = MCPServer("Muisti", instructions=(
+    "Muisti on this computer: the collection in the desktop app on this laptop. If a second Muisti connector (online) "
+    "is also available, use only one of them in a conversation; changes reach the other side only after the app's "
+    "next sync (up to 5 minutes), so a card just made through one may not be found through the other yet."))
 _open_lock = threading.Lock()  # tool calls run in parallel threads; the collection opens once at a time
 
 

@@ -22,7 +22,16 @@ export default defineConfig(({ mode }) => {
             // Vercel serves the folder as is: never cache the entry points, hashed assets forever
             writeFileSync(`${outDir}/vercel.json`, JSON.stringify({
               // the worker (web-api/, added by web-api/bundle.sh): a cold start pulls a whole collection once
-              functions: { 'api/worker.py': { maxDuration: 300, excludeFiles: '{assets/**,katex/**,index.html,icon.svg,version.json}' } },
+              functions: {
+                'api/worker.py': { maxDuration: 300, excludeFiles: '{assets/**,katex/**,index.html,icon.svg,version.json}' },
+                'api/connector.py': { maxDuration: 300, excludeFiles: '{assets/**,katex/**,index.html,icon.svg,version.json}' },
+              },
+              // Claude's connector (web-api/connector.py) at a short address; the consent page is the app itself
+              rewrites: [
+                { source: '/mcp', destination: '/api/connector' },
+                { source: '/.well-known/oauth-protected-resource/mcp', destination: '/api/connector' },
+                { source: '/oauth/consent', destination: '/index.html' },
+              ],
               headers: [
                 { source: '/(index.html|version.json)?', headers: [{ key: 'Cache-Control', value: 'no-store' }] },
                 { source: '/assets/(.*)', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },

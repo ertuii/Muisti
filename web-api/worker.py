@@ -35,6 +35,12 @@ ALLOWED = {
     "notetype", "save_notetype", "add_notetype", "delete_notetype", "preview_template", "note_types",
     "inspect_import", "import_file", "export_deck", "export_collection", "search", "apply_exam_pace",
 }
+# what Claude may run here through the connector (connector.py): the desktop MCP tools that touch no local files
+MCP_ALLOWED = {
+    "decks", "create_deck", "rename_deck", "note_types", "add_note", "add_media", "inbox", "difficult_cards",
+    "weak_spots", "exam_plan", "search", "get_note", "update_note", "delete_notes", "suspend", "forget_cards",
+    "card_info", "stats", "statistics", "create_filtered_deck",
+}
 STORAGE = "storage:"  # path arguments that name a file in the user's storage folder (uploads, exports)
 MAX_CACHED = 20  # ponytail: collections kept per warm instance, oldest dropped first; /tmp is 500 MB
 
@@ -149,8 +155,9 @@ def fetch_media_for(core: Core, token: str, uid: str, deck_id: int | None):
             pass  # referenced but never uploaded: Anki exports without it too
 
 
-def run(token: str, method: str, args: list):
-    if method not in ALLOWED and method != "warm":
+def run(token: str, method: str, args: list | dict, allowed: set[str] = ALLOWED):
+    """args: positional from the web app, keywords from the connector (which has no storage: paths)."""
+    if method not in allowed and method != "warm":
         raise ValueError(f"Gibt es im Web nicht: {method}")
     uid = user_of(token)
     e = entry_for(uid)
@@ -164,7 +171,7 @@ def run(token: str, method: str, args: list):
         try:
             exports = []  # (storage name, local path)
             uploads = []
-            for i, a in enumerate(args):
+            for i, a in enumerate(args if isinstance(args, list) else []):
                 if isinstance(a, str) and a.startswith(STORAGE):
                     name = a[len(STORAGE):]
                     if method.startswith("export_"):
@@ -176,7 +183,7 @@ def run(token: str, method: str, args: list):
             if method == "export_deck" or method == "export_collection":
                 fetch_media_for(e.core, token, uid, args[1] if method == "export_deck" and len(args) > 1 else None)
             media_before = set(os.listdir(e.core.media_dir()))
-            result = getattr(e.core, method)(*args)
+            result = getattr(e.core, method)(**args) if isinstance(args, dict) else getattr(e.core, method)(*args)
             upload_new_media(e.core, token, uid, media_before)
             for name, path in exports:
                 put_file(token, uid, name, path)

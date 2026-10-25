@@ -20,7 +20,12 @@ if (import.meta.env.MODE === 'web') {
   // web: sign in first, then load the collection from Supabase (src/web/db.js)
   const { sb, open } = await import('./web/db.js')
   const { data } = await sb.auth.getSession()
-  if (data.session) {
+  if (location.pathname === '/oauth/consent') {
+    // Claude asks for access (web-api/connector.py); Login reloads this same address once signed in
+    setLang(null)
+    const { default: page } = await (data.session ? import('./lib/Consent.svelte') : import('./lib/Login.svelte'))
+    mount(page, { target })
+  } else if (data.session) {
     await open(data.session.user.id)
     await start()
     // the worker loads the collection once per server instance: do it now, not when statistics are first opened

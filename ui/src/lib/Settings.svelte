@@ -25,6 +25,8 @@
   let moving = $state(false)
   let claude = $state(null)
   let connecting = $state(null)
+  const connectorUrl = `${web ? location.origin : 'https://app.muisti.de'}/mcp` // web-api/connector.py
+  let grants = $state(null) // web: Claude connectors the user allowed (Supabase OAuth grants)
   let prefs = $state(null)
   let cardCount = $state(0)
   let prefTimer
@@ -82,6 +84,7 @@
     ;[account, backups, storage, claude, prefs, cardCount] = await Promise.all([
       api.sync_account(), api.backups(), api.storage(), api.claude_status(), api.preferences(), api.stats().then((s) => s.cards),
     ])
+    if (web) loadGrants().catch(() => {})
   }
 
   // Preferences save themselves shortly after each change.
@@ -132,6 +135,19 @@
     } finally {
       connecting = null
     }
+  }
+
+  async function loadGrants() {
+    const { sb } = await import('../web/db.js')
+    grants = (await sb.auth.oauth.listGrants()).data ?? [] // empty until the OAuth server is on
+  }
+
+  async function revoke(clientId) {
+    const { sb } = await import('../web/db.js')
+    const { error } = await sb.auth.oauth.revokeGrant({ clientId })
+    if (error) return fail(error)
+    notify(t('Zugriff entzogen'))
+    await loadGrants()
   }
 
   async function disconnect(target) {
@@ -482,10 +498,33 @@
       <p class="muted small">{t('Noch keine Sicherungen.')}</p>
     {/if}
   </section>
+  {/if}
 
   <section>
     <h2>{t('Claude verbinden')}</h2>
-    <p class="muted">{t('Ein Klick, und Claude kann deine Karten anlegen, durchsuchen und bearbeiten. Frag danach einfach: „Erstelle 10 Karten zu Integralrechnung im Stapel Analysis II.“')}</p>
+    <p class="muted">{web ? t('Einmal einrichten, dann kann Claude deine Karten anlegen, durchsuchen und bearbeiten. Frag danach einfach: „Erstelle 10 Karten zu Integralrechnung im Stapel Analysis II.“') : t('Ein Klick, und Claude kann deine Karten anlegen, durchsuchen und bearbeiten. Frag danach einfach: „Erstelle 10 Karten zu Integralrechnung im Stapel Analysis II.“')}</p>
+    {#if web}
+      <ol class="steps muted">
+        <li>{t('Öffne in Claude (claude.ai oder die App) Einstellungen → Konnektoren → Eigenen Konnektor hinzufügen.')}</li>
+        <li>{t('Gib als Namen „Muisti“ ein und füge diese Adresse ein:')}</li>
+      </ol>
+      <div class="cmd"><code>{connectorUrl}</code><button class="plain sm" aria-label={t('Adresse kopieren')} onclick={() => copy(connectorUrl)}><Copy size={16} /></button></div>
+      <ol class="steps muted" start="3"><li>{t('Melde dich mit deinem Muisti-Konto an und tippe auf „Zulassen“. Danach geht es auch in der Claude-App auf dem Handy.')}</li></ol>
+      {#if grants?.length}
+        <ul class="clients">
+          {#each grants as g}
+            <li>
+              <div><b>{g.client.name || 'Claude'}</b><span class="state on">{t('verbunden')}</span></div>
+              <button class="ghost sm" onclick={() => revoke(g.client.id)}>{t('Zugriff entziehen')}</button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    {/if}
+    {#if !web && cloud}
+      <p class="muted small">{t('Mit deinem Muisti-Konto geht Claude auch online, im Browser und auf dem Handy: In Claude unter Einstellungen → Konnektoren einen eigenen Konnektor mit dieser Adresse hinzufügen. Nutze in Claude nur eins von beidem: Die Verbindung hier meint die Sammlung auf diesem Laptop, die online dein Konto. Trenne dann hier Claude Desktop und Claude Code.')}</p>
+      <div class="cmd"><code>{connectorUrl}</code><button class="plain sm" aria-label={t('Adresse kopieren')} onclick={() => copy(connectorUrl)}><Copy size={16} /></button></div>
+    {/if}
     {#if claude?.unstable_location}
       <p class="choice">{t('Verschiebe Muisti zuerst in den Ordner „Programme“ und öffne es von dort. Sonst zeigt Claude ins Leere, sobald die App verschoben wird.')}</p>
     {/if}
@@ -516,6 +555,7 @@
     {/if}
   </section>
 
+  {#if !web}
   <section>
     <h2>{t('Speicherort')}</h2>
     <p class="muted">{t('Hier liegen deine Karten, Medien und Sicherungen. Du kannst einen anderen Ordner wählen, z. B. eine externe Festplatte.')}</p>
@@ -585,6 +625,7 @@
   .login input { flex: 1 1 200px; }
   .choice { background: var(--warn-bg); color: var(--warn-ink); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
   .choice p { font-size: 14px; }
+  .steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
   .cmd { display: flex; align-items: center; gap: 8px; background: var(--paper-2); border-radius: var(--radius); padding: 8px 8px 8px 12px; }
   .cmd code { flex: 1; font: 13px/1.5 ui-monospace, 'SF Mono', Menlo, Consolas, monospace; overflow-wrap: anywhere; }
   .w { width: 1%; white-space: nowrap; }

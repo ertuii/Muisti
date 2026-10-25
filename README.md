@@ -62,13 +62,14 @@ Erste Installation bei Freunden (App ist nicht signiert): Mac – App einmal öf
 Muisti gibt es auch im Browser (Vercel), mit Konto (Supabase Auth). Die Karten liegen dann zusätzlich online, Zeile für Zeile wie in Ankis Datenbank (`supabase/migrations/`), jede Person sieht nur ihre eigenen (RLS).
 
 - **Desktop:** *Einstellungen → Muisti-Konto* anmelden. Muisti gleicht beim Start, alle 5 Minuten und beim Beenden ab. Ankis Regel: Die neuere Änderung gewinnt, gelöschte Karten verschwinden überall, Wiederholungen werden zusammengeführt. AnkiWeb-Sync und Muisti-Konto schließen sich aus.
-- **Web:** alles außer Claude/MCP und den reinen Desktop-Dingen (Sicherungen, Speicherort, AnkiWeb, Von Anki übernehmen; stattdessen .colpkg importieren). Lernen, Hinzufügen, Browser, Prüfungen und Lernplan laufen im Browser (FSRS über ts-fsrs bzw. SM-2, Limits auch übergeordneter Stapel, Geschwister zurückstellen). Was Ankis eigene Engine braucht – Statistik, Stapel-Optionen und FSRS-Optimierung, Notiztypen, gefilterte Stapel, Vorlernen/Üben, Import/Export, die volle Suche (ODER, Klammern, Feldsuche) – erledigt der **Worker** (`web-api/worker.py`, Vercel-Funktion): Er führt `core.py` selbst aus, auf einer Kopie der Sammlung, die er per Sync holt und zurückschreibt.
+- **Web:** alles außer den reinen Desktop-Dingen (Sicherungen, Speicherort, AnkiWeb, Von Anki übernehmen; stattdessen .colpkg importieren). Lernen, Hinzufügen, Browser, Prüfungen und Lernplan laufen im Browser (FSRS über ts-fsrs bzw. SM-2, Limits auch übergeordneter Stapel, Geschwister zurückstellen). Was Ankis eigene Engine braucht – Statistik, Stapel-Optionen und FSRS-Optimierung, Notiztypen, gefilterte Stapel, Vorlernen/Üben, Import/Export, die volle Suche (ODER, Klammern, Feldsuche) – erledigt der **Worker** (`web-api/worker.py`, Vercel-Funktion): Er führt `core.py` selbst aus, auf einer Kopie der Sammlung, die er per Sync holt und zurückschreibt.
 - Entwicklung: `cd ui && npm run build:web && npx vite preview --mode web --outDir dist-web`, dazu den Worker mit `PYTHONPATH=src uv run python web-api/dev.py` (Supabase-Projekt steht in `ui/.env.web`).
 
 **Updates:** Der Tag `v<version>` (siehe *Updates ausrollen*) baut auch die Webapp und stellt sie auf Vercel online; offene Tabs zeigen dann „Aktualisieren“. Einmalig nötig:
 1. GitHub-Secret `VERCEL_TOKEN` (vercel.com → Account Settings → Tokens).
 2. Supabase → Authentication → URL Configuration: *Site URL* = Adresse der Webapp (für Bestätigungs- und Passwort-Mails).
-3. Optional: Secrets `MUISTI_TEST_EMAIL`/`MUISTI_TEST_PASSWORD` (ein bestätigtes Testkonto), dann läuft `tests/test_cloud.py` auch in CI. Achtung: der Test leert die Online-Daten dieses Kontos.
+3. Für Claude im Web: Supabase → Authentication → OAuth Server einschalten, *Authorization Path* `/oauth/consent`, *Dynamic Client Registration* an.
+4. Optional: Secrets `MUISTI_TEST_EMAIL`/`MUISTI_TEST_PASSWORD` (ein bestätigtes Testkonto), dann läuft `tests/test_cloud.py` auch in CI. Achtung: der Test leert die Online-Daten dieses Kontos.
 
 Datenbank-Änderungen kommen als neue Datei nach `supabase/migrations/` und werden vor dem Tag eingespielt (`supabase db push`). Nur ergänzen, nichts umbenennen: ältere Apps synchronisieren weiter. Geht es nicht anders, `sync_state.schema` erhöhen, dann bitten ältere Apps um ein Update statt zu synchronisieren.
 
@@ -88,6 +89,8 @@ Tools: `list_decks`, `create_deck`, `rename_deck`, `list_note_types`, `add_notes
 Fertige Abläufe (MCP-Prompts): **Karten aus Material erstellen** (Skript, PDF oder Text → Karten, ohne Dubletten) und **Schwierige Karten verbessern** (oft vergessene Karten analysieren und nach deinem OK umformulieren).
 
 Für andere MCP-Clients steht der Startbefehl unter *Einstellungen → Claude verbinden → Andere MCP-Clients*.
+
+**Online (claude.ai, Claude-App auf dem Handy):** In Claude unter *Einstellungen → Konnektoren* einen eigenen Konnektor mit `https://app.muisti.de/mcp` hinzufügen, mit dem Muisti-Konto anmelden, „Zulassen“. Das ist `web-api/connector.py`: dieselben Tools über den Worker, ohne die, die lokale Dateien brauchen (`current_card`, `import_file`, `export_deck`; `add_media` nur per URL oder Base64). Anmeldung über Supabase Auth als OAuth-2.1-Server, Zustimmungsseite `/oauth/consent`. Nutze in einem Claude nur eine der beiden Verbindungen: lokal ist die Sammlung auf dem Laptop, online das Konto; dazwischen liegt der Sync (bis zu 5 Minuten).
 
 ## Tastatur
 

@@ -6,8 +6,8 @@ cd "$(dirname "$0")/.."
 out=ui/dist-web
 lib=$out/api/_lib
 mkdir -p "$lib/muisti"
-cp web-api/worker.py "$out/api/worker.py"
-cp src/muisti/__init__.py src/muisti/core.py src/muisti/cloud.py "$lib/muisti/"
+cp web-api/worker.py web-api/connector.py "$out/api/"
+cp src/muisti/__init__.py src/muisti/core.py src/muisti/cloud.py src/muisti/server.py src/muisti/mcp_server.py "$lib/muisti/"
 cp web-api/requirements.txt "$out/requirements.txt"
 echo 3.12 > "$out/.python-version"
 version=$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml | head -1)
