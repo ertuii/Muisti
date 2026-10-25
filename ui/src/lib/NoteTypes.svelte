@@ -2,6 +2,7 @@
   import { ArrowUp, ArrowDown, ArrowLeft, X, Plus } from '@lucide/svelte'
   import { api } from './api.js'
   import CardFrame from './CardFrame.svelte'
+  import { t } from './i18n.js'
 
   let { notify } = $props()
 
@@ -68,12 +69,12 @@
 
   async function save() {
     const names = nt.fields.map((f) => f.name.trim())
-    if (names.some((n) => !n)) return notify('Felder brauchen einen Namen', true)
-    if (new Set(names).size !== names.length) return notify('Feldnamen müssen eindeutig sein', true)
+    if (names.some((n) => !n)) return notify(t('Felder brauchen einen Namen'), true)
+    if (new Set(names).size !== names.length) return notify(t('Feldnamen müssen eindeutig sein'), true)
     saving = true
     try {
       await api.save_notetype($state.snapshot(nt))
-      notify('Notiztyp gespeichert')
+      notify(t('Notiztyp gespeichert'))
       await loadTypes(nt.id)
     } catch (e) {
       notify(String(e?.message ?? e), true)
@@ -86,7 +87,7 @@
     if (!creating?.trim()) return (creating = null)
     try {
       const id = await api.add_notetype(selId, creating)
-      notify(`„${creating}“ angelegt`)
+      notify(t('„{name}“ angelegt', { name: creating }))
       creating = null
       await loadTypes(id)
     } catch (e) {
@@ -98,7 +99,7 @@
     if (!confirmDelete) return (confirmDelete = true)
     try {
       await api.delete_notetype(selId)
-      notify(`„${nt.name}“ gelöscht`)
+      notify(t('„{name}“ gelöscht', { name: nt.name }))
       selId = null
       await loadTypes()
     } catch (e) {
@@ -111,36 +112,36 @@
 
 <div class="nts" class:detail>
   <aside class="list">
-    <h1>Notiztypen</h1>
+    <h1>{t('Notiztypen')}</h1>
     <nav>
-      {#each types as t (t.id)}
-        <button class="item" class:on={t.id === selId} onclick={() => { detail = true; select(t.id) }}>{t.name}</button>
+      {#each types as ty (ty.id)}
+        <button class="item" class:on={ty.id === selId} onclick={() => { detail = true; select(ty.id) }}>{ty.name}</button>
       {/each}
     </nav>
     {#if creating === null}
-      <button class="ghost" onclick={() => (creating = '')}><Plus size={16} />Neuer Notiztyp</button>
+      <button class="ghost" onclick={() => (creating = '')}><Plus size={16} />{t('Neuer Notiztyp')}</button>
     {:else}
       <!-- svelte-ignore a11y_autofocus -->
-      <input bind:value={creating} placeholder="Name (Kopie des gewählten)" autofocus
+      <input bind:value={creating} placeholder={t('Name (Kopie des gewählten)')} autofocus
         onkeydown={(e) => e.key === 'Enter' ? create() : e.key === 'Escape' && (creating = null)} onblur={create} />
     {/if}
   </aside>
 
   {#if nt}
     <section class="edit">
-      <button class="plain back" onclick={() => (detail = false)}><ArrowLeft size={17} />Alle Notiztypen</button>
+      <button class="plain back" onclick={() => (detail = false)}><ArrowLeft size={17} />{t('Alle Notiztypen')}</button>
       <div class="head">
-        <input class="name" bind:value={nt.name} aria-label="Name des Notiztyps" />
-        <span class="muted">{nt.use_count} {nt.use_count === 1 ? 'Notiz' : 'Notizen'}</span>
+        <input class="name" bind:value={nt.name} aria-label={t('Name des Notiztyps')} />
+        <span class="muted">{t(nt.use_count === 1 ? '{n} Notiz' : '{n} Notizen', { n: nt.use_count })}</span>
         <button class="danger sm" onclick={remove} onblur={() => (confirmDelete = false)}>
-          {confirmDelete ? `Mit ${nt.use_count} Notizen löschen?` : 'Löschen'}
+          {confirmDelete ? t('Mit {n} Notizen löschen?', { n: nt.use_count }) : t('Löschen')}
         </button>
       </div>
 
       <div class="tabs" role="tablist">
-        <button role="tab" aria-selected={tab === 'fields'} class:on={tab === 'fields'} onclick={() => (tab = 'fields')}>Felder</button>
-        <button role="tab" aria-selected={tab === 'templates'} class:on={tab === 'templates'} onclick={() => (tab = 'templates')}>Kartenvorlagen</button>
-        <button role="tab" aria-selected={tab === 'css'} class:on={tab === 'css'} onclick={() => (tab = 'css')}>Stil</button>
+        <button role="tab" aria-selected={tab === 'fields'} class:on={tab === 'fields'} onclick={() => (tab = 'fields')}>{t('Felder')}</button>
+        <button role="tab" aria-selected={tab === 'templates'} class:on={tab === 'templates'} onclick={() => (tab = 'templates')}>{t('Kartenvorlagen')}</button>
+        <button role="tab" aria-selected={tab === 'css'} class:on={tab === 'css'} onclick={() => (tab = 'css')}>{t('Stil')}</button>
       </div>
 
       {#if tab === 'fields'}
@@ -148,36 +149,36 @@
           {#each nt.fields as f, i (f)}
             <li>
               <span class="idx num muted">{i + 1}</span>
-              <input bind:value={f.name} aria-label="Feldname {i + 1}" />
-              <button class="plain sm" aria-label="Nach oben" disabled={i === 0} onclick={() => move(nt.fields, i, -1)}><ArrowUp size={16} /></button>
-              <button class="plain sm" aria-label="Nach unten" disabled={i === nt.fields.length - 1} onclick={() => move(nt.fields, i, 1)}><ArrowDown size={16} /></button>
-              <button class="plain sm" aria-label="Feld entfernen" disabled={nt.fields.length === 1} onclick={() => nt.fields.splice(i, 1)}><X size={16} /></button>
+              <input bind:value={f.name} aria-label={t('Feldname {n}', { n: i + 1 })} />
+              <button class="plain sm" aria-label={t('Nach oben')} disabled={i === 0} onclick={() => move(nt.fields, i, -1)}><ArrowUp size={16} /></button>
+              <button class="plain sm" aria-label={t('Nach unten')} disabled={i === nt.fields.length - 1} onclick={() => move(nt.fields, i, 1)}><ArrowDown size={16} /></button>
+              <button class="plain sm" aria-label={t('Feld entfernen')} disabled={nt.fields.length === 1} onclick={() => nt.fields.splice(i, 1)}><X size={16} /></button>
             </li>
           {/each}
         </ol>
-        <div><button class="ghost sm" onclick={() => nt.fields.push({ ord: null, name: `Feld ${nt.fields.length + 1}` })}><Plus size={15} />Feld hinzufügen</button></div>
-        <p class="muted note">Entfernte Felder löschen ihren Inhalt in allen {nt.use_count} Notizen. Umbenennungen werden in den Vorlagen übernommen.</p>
+        <div><button class="ghost sm" onclick={() => nt.fields.push({ ord: null, name: t('Feld {n}', { n: nt.fields.length + 1 }) })}><Plus size={15} />{t('Feld hinzufügen')}</button></div>
+        <p class="muted note">{t('Entfernte Felder löschen ihren Inhalt in allen {n} Notizen. Umbenennungen werden in den Vorlagen übernommen.', { n: nt.use_count })}</p>
       {:else}
         <div class="tpl-bar">
           {#if tab === 'templates' && !nt.cloze}
-            <select class="sm" bind:value={tIndex} aria-label="Kartenvorlage">
-              {#each nt.templates as t, i}<option value={i}>{t.name}</option>{/each}
+            <select class="sm" bind:value={tIndex} aria-label={t('Kartenvorlage')}>
+              {#each nt.templates as tpl, i}<option value={i}>{tpl.name}</option>{/each}
             </select>
-            <input class="sm tname" bind:value={nt.templates[tIndex].name} aria-label="Name der Vorlage" />
-            <button class="ghost sm" onclick={() => { nt.templates.push({ ord: null, name: `Karte ${nt.templates.length + 1}`, qfmt: '{{' + nt.fields[0].name + '}}', afmt: '{{FrontSide}}\n\n<hr id=answer>\n\n' }); tIndex = nt.templates.length - 1 }}><Plus size={15} />Vorlage</button>
-            <button class="plain sm" disabled={nt.templates.length === 1} onclick={() => { nt.templates.splice(tIndex, 1); tIndex = 0 }}>Vorlage entfernen</button>
+            <input class="sm tname" bind:value={nt.templates[tIndex].name} aria-label={t('Name der Vorlage')} />
+            <button class="ghost sm" onclick={() => { nt.templates.push({ ord: null, name: t('Karte {n}', { n: nt.templates.length + 1 }), qfmt: '{{' + nt.fields[0].name + '}}', afmt: '{{FrontSide}}\n\n<hr id=answer>\n\n' }); tIndex = nt.templates.length - 1 }}><Plus size={15} />{t('Vorlage')}</button>
+            <button class="plain sm" disabled={nt.templates.length === 1} onclick={() => { nt.templates.splice(tIndex, 1); tIndex = 0 }}>{t('Vorlage entfernen')}</button>
           {/if}
           <div class="seg">
-            <button class:on={side === 'q'} onclick={() => (side = 'q')}>Vorderseite</button>
-            <button class:on={side === 'a'} onclick={() => (side = 'a')}>Rückseite</button>
+            <button class:on={side === 'q'} onclick={() => (side = 'q')}>{t('Vorderseite')}</button>
+            <button class:on={side === 'a'} onclick={() => (side = 'a')}>{t('Rückseite')}</button>
           </div>
         </div>
         <div class="split">
           {#if tab === 'templates'}
             {#if side === 'q'}
-              <textarea class="code" bind:value={nt.templates[tIndex].qfmt} spellcheck="false" aria-label="Vorlage Vorderseite"></textarea>
+              <textarea class="code" bind:value={nt.templates[tIndex].qfmt} spellcheck="false" aria-label={t('Vorlage Vorderseite')}></textarea>
             {:else}
-              <textarea class="code" bind:value={nt.templates[tIndex].afmt} spellcheck="false" aria-label="Vorlage Rückseite"></textarea>
+              <textarea class="code" bind:value={nt.templates[tIndex].afmt} spellcheck="false" aria-label={t('Vorlage Rückseite')}></textarea>
             {/if}
           {:else}
             <textarea class="code" bind:value={nt.css} spellcheck="false" aria-label="CSS"></textarea>
@@ -186,18 +187,18 @@
             {#if preview}<CardFrame html={side === 'q' ? preview.question : preview.answer} css={preview.css} ord={preview.ord} />{/if}
           </div>
         </div>
-        <p class="muted note">Felder einsetzen mit <code>{'{{Feldname}}'}</code>, Vorderseite auf der Rückseite mit <code>{'{{FrontSide}}'}</code>, Vorlesen mit <code>{'{{tts de_DE:Feldname}}'}</code>.</p>
+        <p class="muted note">{t('Felder einsetzen mit')} <code>{`{{${t('Feldname')}}}`}</code>{t(', Vorderseite auf der Rückseite mit')} <code>{'{{FrontSide}}'}</code>{t(', Vorlesen mit')} <code>{`{{tts ${t('de_DE')}:${t('Feldname')}}}`}</code>.</p>
       {/if}
 
       <div class="bar">
-        {#if dirty}<span class="muted">Ungespeicherte Änderungen</span>{/if}
-        <button class="ghost" disabled={!dirty} onclick={() => select(selId)}>Verwerfen</button>
-        <button disabled={!dirty || saving} onclick={save}>{saving ? 'Speichere …' : 'Speichern'}</button>
+        {#if dirty}<span class="muted">{t('Ungespeicherte Änderungen')}</span>{/if}
+        <button class="ghost" disabled={!dirty} onclick={() => select(selId)}>{t('Verwerfen')}</button>
+        <button disabled={!dirty || saving} onclick={save}>{saving ? t('Speichere …') : t('Speichern')}</button>
       </div>
     </section>
   {:else if selId != null}
-    <section class="edit" aria-busy="true" aria-label="Notiztyp wird geladen">
-      <button class="plain back" onclick={() => (detail = false)}><ArrowLeft size={17} />Alle Notiztypen</button>
+    <section class="edit" aria-busy="true" aria-label={t('Notiztyp wird geladen')}>
+      <button class="plain back" onclick={() => (detail = false)}><ArrowLeft size={17} />{t('Alle Notiztypen')}</button>
       <span class="skel" style="width:280px;max-width:100%;height:var(--control-h)"></span>
       <span class="skel" style="width:220px;height:30px"></span>
       {#each Array(4) as _}<span class="skel" style="max-width:560px;height:var(--control-h)"></span>{/each}

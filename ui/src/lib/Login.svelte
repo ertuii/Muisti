@@ -2,6 +2,7 @@
   // Web app only: sign in or create the Muisti account (Supabase Auth). The desktop signs in under Einstellungen.
   import { sb } from '../web/db.js'
   import './theme.js'
+  import { t } from './i18n.js'
 
   let mode = $state('login') // 'login' | 'register' | 'reset'
   let email = $state('')
@@ -26,9 +27,9 @@
           : await sb.auth.resetPasswordForEmail(email, { redirectTo: redirect })
       if (error) throw error
       if (mode === 'login' || /** @type {any} */ (data)?.session) return location.reload()
-      message = { text: mode === 'register' ? 'Fast geschafft: Bestätige deine E-Mail über den Link im Postfach.' : 'Wir haben dir einen Link zum Zurücksetzen geschickt.' }
+      message = { text: mode === 'register' ? t('Fast geschafft: Bestätige deine E-Mail über den Link im Postfach.') : t('Wir haben dir einen Link zum Zurücksetzen geschickt.') }
     } catch (err) {
-      message = { text: GERMAN[err.message] ?? err.message, error: true }
+      message = { text: t(GERMAN[err.message] ?? err.message), error: true }
     } finally {
       busy = false
     }
@@ -38,21 +39,21 @@
 <main>
   <form onsubmit={submit}>
     <img src="/icon.svg" alt="" width="44" height="44" />
-    <h1>{mode === 'register' ? 'Konto erstellen' : mode === 'reset' ? 'Passwort vergessen' : 'Bei Muisti anmelden'}</h1>
-    <p class="muted">Deine Karten, im Browser und in der Desktop-App abgeglichen.</p>
-    <label>E-Mail<input type="email" bind:value={email} required autocomplete="username" /></label>
+    <h1>{mode === 'register' ? t('Konto erstellen') : mode === 'reset' ? t('Passwort vergessen') : t('Bei Muisti anmelden')}</h1>
+    <p class="muted">{t('Deine Karten, im Browser und in der Desktop-App abgeglichen.')}</p>
+    <label>{t('E-Mail')}<input type="email" bind:value={email} required autocomplete="username" /></label>
     {#if mode !== 'reset'}
-      <label>Passwort<input type="password" bind:value={password} required minlength="8"
+      <label>{t('Passwort')}<input type="password" bind:value={password} required minlength="8"
         autocomplete={mode === 'register' ? 'new-password' : 'current-password'} /></label>
     {/if}
-    <button type="submit" disabled={busy}>{busy ? 'Einen Moment …' : mode === 'register' ? 'Konto erstellen' : mode === 'reset' ? 'Link schicken' : 'Anmelden'}</button>
+    <button type="submit" disabled={busy}>{busy ? t('Einen Moment …') : mode === 'register' ? t('Konto erstellen') : mode === 'reset' ? t('Link schicken') : t('Anmelden')}</button>
     {#if message}<p class:error={message.error} role="status">{message.text}</p>{/if}
     <div class="links">
       {#if mode === 'login'}
-        <button type="button" class="plain" onclick={() => (mode = 'register')}>Neu hier? Konto erstellen</button>
-        <button type="button" class="plain" onclick={() => (mode = 'reset')}>Passwort vergessen</button>
+        <button type="button" class="plain" onclick={() => (mode = 'register')}>{t('Neu hier? Konto erstellen')}</button>
+        <button type="button" class="plain" onclick={() => (mode = 'reset')}>{t('Passwort vergessen')}</button>
       {:else}
-        <button type="button" class="plain" onclick={() => (mode = 'login')}>Zurück zur Anmeldung</button>
+        <button type="button" class="plain" onclick={() => (mode = 'login')}>{t('Zurück zur Anmeldung')}</button>
       {/if}
     </div>
   </form>

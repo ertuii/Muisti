@@ -19,7 +19,7 @@ Deine Daten liegen lokal, standardmäßig hier (änderbar unter *Einstellungen �
 - **Statistik:** Wiederholungen, Prognose, Kartenzahlen, Intervalle, Tageszeit, Erinnerung, Antworttasten
 - **Notiztypen:** Felder, Kartenvorlagen und CSS bearbeiten, mit Live-Vorschau
 - **Von Anki umziehen:** erkennt Anki-Profile auf dem Rechner und übernimmt sie mit Lernstand und Medien (ersetzen oder hinzufügen); Anki bleibt unverändert
-- **Einstellungen:** Ankis globale Einstellungen (Tageswechsel, Vorauslernen, Zeitlimit, Anzeige, Lastverteilung, Editor, Sicherungsintervalle), optionale AnkiWeb-Synchronisierung, automatische Sicherungen + Wiederherstellen, Export der ganzen Sammlung, Claude-Befehl zum Kopieren
+- **Einstellungen:** Sprache (Deutsch, English, Español), Ankis globale Einstellungen (Tageswechsel, Vorauslernen, Zeitlimit, Anzeige, Lastverteilung, Editor, Sicherungsintervalle), optionale AnkiWeb-Synchronisierung, automatische Sicherungen + Wiederherstellen, Export der ganzen Sammlung, Claude-Befehl zum Kopieren
 - **Import/Export:** `.apkg`, `.colpkg`, CSV (mit Vorschau, Stapel- und Spaltenwahl), auch per Drag & Drop ins Fenster
 
 - **Eingang für Claude-Karten:** Karten, die Claude anlegt, warten ausgesetzt im Eingang, bis du sie übernimmst, bearbeitest oder verwirfst (abschaltbar)

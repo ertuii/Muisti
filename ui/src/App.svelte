@@ -1,6 +1,7 @@
 <script>
   import { CalendarDays, Plus, Search, Download, ChartColumn, Shapes, Settings as Gear, Inbox as InboxIcon, GraduationCap, Ellipsis } from '@lucide/svelte'
   import { api, flatten, hueFor, total, web } from './lib/api.js'
+  import { t, tmsg } from './lib/i18n.js'
   import Today from './lib/Today.svelte'
   import Study from './lib/Study.svelte'
   import Editor from './lib/Editor.svelte'
@@ -26,7 +27,7 @@
 
   const checkUpdate = (manual = false) => api.check_update(manual).then((u) => (update = u))
   checkUpdate().catch(() => {})
-  api.update_failure().then((why) => why && notify(`Update fehlgeschlagen, die bisherige Version läuft weiter: ${why}`, true))
+  api.update_failure().then((why) => why && notify(t('Update fehlgeschlagen, die bisherige Version läuft weiter: {why}', { why: tmsg(why) }), true))
 
   async function installUpdate() {
     updating = true
@@ -43,7 +44,7 @@
   }
 
   function notify(text, error = false) {
-    toast = { text, error }
+    toast = { text: tmsg(text), error } // tmsg: errors and messages from the core arrive in German
     clearTimeout(toastTimer)
     toastTimer = setTimeout(() => (toast = null), error ? 6000 : 2600)
   }
@@ -88,7 +89,7 @@
     if (r) go('study', { deckId: r.deck_id, deckName: r.name, temporary: true })
   }
 
-  const studyPlan = (minutes) => go('study', { plan: true, minutes, deckName: 'Lernplan' })
+  const studyPlan = (minutes) => go('study', { plan: true, minutes, deckName: t('Lernplan') })
 
   function go(name, extra = {}) {
     view = { name, ...extra }
@@ -124,23 +125,23 @@
   <aside>
     <div class="brand"><img src="/icon.svg" alt="" width="28" height="28" />Muisti</div>
     <nav>
-      <button class="nav" class:on={view.name === 'today'} onclick={() => go('today')}><CalendarDays size={17} />Heute</button>
-      <button class="nav" class:on={view.name === 'add'} onclick={() => go('add')}><Plus size={17} />Hinzufügen</button>
-      <button class="nav" class:on={view.name === 'browse'} onclick={() => go('browse')}><Search size={17} />Browser</button>
-      <button class="nav" class:on={view.name === 'stats'} onclick={() => go('stats')}><ChartColumn size={17} />Statistik</button>
+      <button class="nav" class:on={view.name === 'today'} onclick={() => go('today')}><CalendarDays size={17} />{t('Heute')}</button>
+      <button class="nav" class:on={view.name === 'add'} onclick={() => go('add')}><Plus size={17} />{t('Hinzufügen')}</button>
+      <button class="nav" class:on={view.name === 'browse'} onclick={() => go('browse')}><Search size={17} />{t('Browser')}</button>
+      <button class="nav" class:on={view.name === 'stats'} onclick={() => go('stats')}><ChartColumn size={17} />{t('Statistik')}</button>
       {#if overview?.features.exams}
-        <button class="nav extra" class:on={view.name === 'exams'} onclick={() => go('exams')}><GraduationCap size={17} />Prüfungen</button>
+        <button class="nav extra" class:on={view.name === 'exams'} onclick={() => go('exams')}><GraduationCap size={17} />{t('Prüfungen')}</button>
       {/if}
       {#if overview?.inbox || view.name === 'inbox'}
         <button class="nav extra" class:on={view.name === 'inbox'} onclick={() => go('inbox')}>
-          <InboxIcon size={17} />Eingang<span class="count num badge">{overview?.inbox || ''}</span>
+          <InboxIcon size={17} />{t('Eingang')}<span class="count num badge">{overview?.inbox || ''}</span>
         </button>
       {/if}
     </nav>
-    <div class="label">Stapel</div>
+    <div class="label">{t('Stapel')}</div>
     <nav class="decks">
       {#each flat.filter((d) => d.depth === 0) as d (d.id)}
-        <button class="nav" onclick={() => go('study', { deckId: d.id, deckName: d.name })} title="{d.name} lernen">
+        <button class="nav" onclick={() => go('study', { deckId: d.id, deckName: d.name })} title={t('{name} lernen', { name: d.name })}>
           <span class="chip" style:background={hueFor(d.top)}></span>
           <span class="name">{d.name}</span>
           <span class="count num">{total(d) || ''}</span>
@@ -149,24 +150,24 @@
     </nav>
     {#if update}
       <div class="update" role="status">
-        <b>Version {update.version} ist da</b>
-        <button class="sm" disabled={updating} onclick={installUpdate}>{updating ? 'Lade Update …' : 'Aktualisieren'}</button>
+        <b>{t('Version {v} ist da', { v: update.version })}</b>
+        <button class="sm" disabled={updating} onclick={installUpdate}>{updating ? t('Lade Update …') : t('Aktualisieren')}</button>
       </div>
     {/if}
-    <button class="nav foot" class:on={view.name === 'notetypes'} onclick={() => go('notetypes')}><Shapes size={17} />Notiztypen</button>
-    <button class="nav foot" class:on={view.name === 'settings'} onclick={() => go('settings')}><Gear size={17} />Einstellungen</button>
-    <button class="nav foot" onclick={importFile}><Download size={17} />Importieren</button>
+    <button class="nav foot" class:on={view.name === 'notetypes'} onclick={() => go('notetypes')}><Shapes size={17} />{t('Notiztypen')}</button>
+    <button class="nav foot" class:on={view.name === 'settings'} onclick={() => go('settings')}><Gear size={17} />{t('Einstellungen')}</button>
+    <button class="nav foot" onclick={importFile}><Download size={17} />{t('Importieren')}</button>
     <!-- phones: the tab bar holds five; the rest sits behind "Mehr" -->
     <button class="nav more" popovertarget="more" class:on={['exams', 'inbox', 'notetypes', 'settings'].includes(view.name)}>
-      <Ellipsis size={17} />Mehr{#if overview?.inbox}<span class="count num badge">{overview.inbox}</span>{/if}
+      <Ellipsis size={17} />{t('Mehr')}{#if overview?.inbox}<span class="count num badge">{overview.inbox}</span>{/if}
     </button>
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
     <div id="more" popover class="menu" onclick={(e) => e.currentTarget.hidePopover()}>
-      {#if overview?.features.exams}<button class="plain" onclick={() => go('exams')}><GraduationCap size={18} />Prüfungen</button>{/if}
-      {#if overview?.inbox}<button class="plain" onclick={() => go('inbox')}><InboxIcon size={18} />Eingang<span class="count num badge">{overview.inbox}</span></button>{/if}
-      <button class="plain" onclick={() => go('notetypes')}><Shapes size={18} />Notiztypen</button>
-      <button class="plain" onclick={() => go('settings')}><Gear size={18} />Einstellungen</button>
-      <button class="plain" onclick={importFile}><Download size={18} />Importieren</button>
+      {#if overview?.features.exams}<button class="plain" onclick={() => go('exams')}><GraduationCap size={18} />{t('Prüfungen')}</button>{/if}
+      {#if overview?.inbox}<button class="plain" onclick={() => go('inbox')}><InboxIcon size={18} />{t('Eingang')}<span class="count num badge">{overview.inbox}</span></button>{/if}
+      <button class="plain" onclick={() => go('notetypes')}><Shapes size={18} />{t('Notiztypen')}</button>
+      <button class="plain" onclick={() => go('settings')}><Gear size={18} />{t('Einstellungen')}</button>
+      <button class="plain" onclick={importFile}><Download size={18} />{t('Importieren')}</button>
     </div>
   </aside>
 
@@ -176,7 +177,7 @@
     {:else if view.name === 'study'}
       <Study deckId={view.deckId} deckName={view.deckName} temporary={view.temporary} plan={view.plan} minutes={view.minutes} {flat} {notify} onExit={() => go('today')} />
     {:else if view.name === 'add'}
-      <div class="page"><h1>Karten hinzufügen</h1><Editor {flat} {notify} onSaved={refresh} /></div>
+      <div class="page"><h1>{t('Karten hinzufügen')}</h1><Editor {flat} {notify} onSaved={refresh} /></div>
     {:else if view.name === 'browse'}
       <Browser {flat} {run} {notify} />
     {:else if view.name === 'notetypes'}
@@ -210,7 +211,7 @@
   }} />
 
 {#if dragging}
-  <div class="drop" aria-hidden="true"><div>Zum Importieren loslassen<span>.apkg, .colpkg oder CSV</span></div></div>
+  <div class="drop" aria-hidden="true"><div>{t('Zum Importieren loslassen')}<span>{t('.apkg, .colpkg oder CSV')}</span></div></div>
 {/if}
 
 {#if toast}

@@ -5,6 +5,7 @@
 <script>
   import { api } from './api.js'
   import Bars from './Bars.svelte'
+  import { lang, t, tmsg } from './i18n.js'
 
   let { flat, notify, weak = false, onPractice } = $props()
 
@@ -17,28 +18,28 @@
     { d: 30, label: '1 Monat' },
     { d: 90, label: '3 Monate' },
     { d: 365, label: '1 Jahr' },
-  ]
+  ].map((p) => ({ ...p, label: t(p.label) }))
 
   const REVIEW_SERIES = [
     { key: 'young', label: 'Jung', color: 'var(--s-young)' },
-    { key: 'learn', label: 'Lernen', color: 'var(--s-learn)' },
+    { key: 'learn', label: 'Lernen (Status)', color: 'var(--s-learn)' },
     { key: 'mature', label: 'Reif', color: 'var(--s-mature)' },
     { key: 'relearn', label: 'Neu lernen', color: 'var(--s-relearn)' },
-  ]
+  ].map((x) => ({ ...x, label: t(x.label) }))
   const COUNT_SERIES = [
     { key: 'new', label: 'Neu', color: 'var(--s-new)' },
     { key: 'young', label: 'Jung', color: 'var(--s-young)' },
-    { key: 'learn', label: 'Lernen', color: 'var(--s-learn)' },
+    { key: 'learn', label: 'Lernen (Status)', color: 'var(--s-learn)' },
     { key: 'mature', label: 'Reif', color: 'var(--s-mature)' },
     { key: 'relearn', label: 'Neu lernen', color: 'var(--s-relearn)' },
     { key: 'suspended', label: 'Ausgesetzt', color: 'var(--s-muted)' },
     { key: 'buried', label: 'Zurückgestellt', color: 'var(--s-muted)' },
-  ]
+  ].map((x) => ({ ...x, label: t(x.label) }))
   const RET_ROWS = [
     ['today', 'Heute'], ['yesterday', 'Gestern'], ['week', 'Letzte Woche'],
     ['month', 'Letzter Monat'], ['year', 'Letztes Jahr'], ['allTime', 'Gesamt'],
-  ]
-  const BUTTONS = ['Nochmal', 'Schwer', 'Gut', 'Einfach']
+  ].map(([k, l]) => [k, t(l)])
+  const BUTTONS = ['Nochmal', 'Schwer', 'Gut', 'Einfach'].map((b) => t(b))
 
   async function load() {
     const key = `${deckId}:${days}`
@@ -60,7 +61,7 @@
   })
 
   const DAY = 86400000
-  const dayLabel = (offset) => new Date(Date.now() + offset * DAY).toLocaleDateString('de-DE', { day: 'numeric', month: 'short' })
+  const dayLabel = (offset) => new Date(Date.now() + offset * DAY).toLocaleDateString(lang, { day: 'numeric', month: 'short' })
   const tickEvery = $derived(days <= 30 ? 7 : days <= 90 ? 14 : 60)
   const sum = (arr) => arr.reduce((a, b) => a + b, 0)
   const pct = (a, b) => (b ? `${Math.round((100 * a) / b)} %` : '–')
@@ -73,13 +74,13 @@
 
 <div class="stats">
   <header>
-    <h1>Statistik</h1>
+    <h1>{t('Statistik')}</h1>
     <div class="filters">
-      <select bind:value={deckId} aria-label="Stapel">
-        <option value={0}>Alle Stapel</option>
+      <select bind:value={deckId} aria-label={t('Stapel')}>
+        <option value={0}>{t('Alle Stapel')}</option>
         {#each flat as d}<option value={d.id}>{' '.repeat(d.depth)}{d.short}</option>{/each}
       </select>
-      <div class="seg" role="radiogroup" aria-label="Zeitraum">
+      <div class="seg" role="radiogroup" aria-label={t('Zeitraum')}>
         {#each PERIODS as p}
           <button role="radio" aria-checked={days === p.d} class:on={days === p.d} onclick={() => (days = p.d)}>{p.label}</button>
         {/each}
@@ -89,57 +90,57 @@
 
   {#if s}
     <dl class="facts">
-      <div><dt class="num">{s.today.answered}</dt><dd>Karten heute</dd></div>
-      <div><dt class="num">{s.today.minutes} min</dt><dd>Lernzeit heute</dd></div>
-      <div><dt class="num">{s.today.correct_pct != null ? `${s.today.correct_pct} %` : '–'}</dt><dd>heute richtig</dd></div>
-      <div><dt class="num">{s.future[1] ?? 0}</dt><dd>morgen fällig</dd></div>
-      <div><dt class="num">{activeDays} / {days}</dt><dd>Tage gelernt</dd></div>
+      <div><dt class="num">{s.today.answered}</dt><dd>{t('Karten heute')}</dd></div>
+      <div><dt class="num">{s.today.minutes} min</dt><dd>{t('Lernzeit heute')}</dd></div>
+      <div><dt class="num">{s.today.correct_pct != null ? `${s.today.correct_pct} %` : '–'}</dt><dd>{t('heute richtig')}</dd></div>
+      <div><dt class="num">{s.future[1] ?? 0}</dt><dd>{t('morgen fällig')}</dd></div>
+      <div><dt class="num">{activeDays} / {days}</dt><dd>{t('Tage gelernt')}</dd></div>
     </dl>
 
     {#if weak && spots}
       <section class="weak">
-        <h2>Schwachstellen</h2>
+        <h2>{t('Schwachstellen')}</h2>
         {#if spots.spots.length}
-          <p class="muted">Themen (Tags) und Stapel, bei denen du weniger Wiederholungen richtig beantwortest als im Durchschnitt ({spots.overall} %, der Strich). Schwächste zuerst.</p>
+          <p class="muted">{t('Themen (Tags) und Stapel, bei denen du weniger Wiederholungen richtig beantwortest als im Durchschnitt ({n} %, der Strich). Schwächste zuerst.', { n: spots.overall })}</p>
           <ul>
             {#each spots.spots as w (w.kind + w.name)}
               <li>
-                <span class="wname"><span class="kind">{w.kind === 'tag' ? 'Tag' : 'Stapel'}</span>{w.name}</span>
-                <span class="meter" title="{w.retention} % von {w.reviews} Wiederholungen">
+                <span class="wname"><span class="kind">{w.kind === 'tag' ? t('Tag') : t('Stapel')}</span>{w.name}</span>
+                <span class="meter" title={t('{p} % von {n} Wiederholungen', { p: w.retention, n: w.reviews })}>
                   <i style:width="{w.retention}%"></i>
                   <span class="avg" style:left="{spots.overall}%"></span>
                 </span>
                 <span class="num val">{w.retention} %</span>
                 <span class="num muted cnt">{w.reviews}×</span>
-                <button class="ghost sm" onclick={() => onPractice(w.kind, w.name)}>Üben</button>
+                <button class="ghost sm" onclick={() => onPractice(w.kind, w.name)}>{t('Üben')}</button>
               </li>
             {/each}
           </ul>
         {:else}
-          <p class="muted">{spots.reviews ? 'Keine Ausreißer: Kein Thema liegt unter deinem Durchschnitt, oder es hat weniger als 10 Wiederholungen.' : 'Noch keine Wiederholungen in diesem Zeitraum.'}</p>
+          <p class="muted">{spots.reviews ? t('Keine Ausreißer: Kein Thema liegt unter deinem Durchschnitt, oder es hat weniger als 10 Wiederholungen.') : t('Noch keine Wiederholungen in diesem Zeitraum.')}</p>
         {/if}
       </section>
     {/if}
 
     <div class="grid">
       <section class="wide">
-        <h2>Wiederholungen</h2>
-        <p class="muted">{reviewTotal} Antworten in diesem Zeitraum, nach Kartenstatus.</p>
+        <h2>{t('Wiederholungen')}</h2>
+        <p class="muted">{t('{n} Antworten in diesem Zeitraum, nach Kartenstatus.', { n: reviewTotal })}</p>
         <Bars rows={s.reviews} series={REVIEW_SERIES} labels={s.reviews.map((_, i) => dayLabel(i - days + 1))} {tickEvery}
-          tip={(r, i) => `<b>${dayLabel(i - days + 1)}</b><br>${REVIEW_SERIES.filter((x) => r[x.key]).map((x) => `${x.label}: ${r[x.key]}`).join('<br>') || 'nichts gelernt'}`} />
+          tip={(r, i) => `<b>${dayLabel(i - days + 1)}</b><br>${REVIEW_SERIES.filter((x) => r[x.key]).map((x) => `${x.label}: ${r[x.key]}`).join('<br>') || t('nichts gelernt')}`} />
       </section>
 
       <section class="wide">
-        <h2>Prognose</h2>
-        <p class="muted">Fällige Wiederholungen der nächsten {days} Tage, Rückstand zählt auf heute.</p>
-        <Bars rows={futureRows} series={[{ key: 'n', label: 'Fällig', color: 'var(--s-mature)' }]} labels={futureRows.map((_, i) => dayLabel(i))} {tickEvery}
-          tip={(r, i) => `<b>${i === 0 ? 'Heute' : dayLabel(i)}</b><br>${r.n} fällig`} />
+        <h2>{t('Prognose')}</h2>
+        <p class="muted">{t('Fällige Wiederholungen der nächsten {n} Tage, Rückstand zählt auf heute.', { n: days })}</p>
+        <Bars rows={futureRows} series={[{ key: 'n', label: t('Fällig'), color: 'var(--s-mature)' }]} labels={futureRows.map((_, i) => dayLabel(i))} {tickEvery}
+          tip={(r, i) => `<b>${i === 0 ? t('Heute') : dayLabel(i)}</b><br>${t('{n} fällig', { n: r.n })}`} />
       </section>
 
       <section>
-        <h2>Kartenzahlen</h2>
-        <p class="muted">{cardTotal} Karten insgesamt.</p>
-        <div class="hbar" role="img" aria-label="Verteilung der Karten nach Status">
+        <h2>{t('Kartenzahlen')}</h2>
+        <p class="muted">{t('{n} Karten insgesamt.', { n: cardTotal })}</p>
+        <div class="hbar" role="img" aria-label={t('Verteilung der Karten nach Status')}>
           {#each COUNT_SERIES as c}
             {#if s.card_counts[c.key]}<span style:flex={s.card_counts[c.key]} style:background={c.color} title="{c.label}: {s.card_counts[c.key]}"></span>{/if}
           {/each}
@@ -154,24 +155,24 @@
       </section>
 
       <section>
-        <h2>Intervalle</h2>
-        <p class="muted">Abstand bis zur nächsten Wiederholung, Karten in der Wiederholung.</p>
-        <Bars rows={s.intervals} series={[{ key: 'n', label: 'Karten', color: 'var(--s-young)' }]} labels={s.intervals.map((b) => b.label)} tickEvery={2}
-          tip={(r) => `<b>${r.label}</b><br>${r.n} Karten`} />
+        <h2>{t('Intervalle')}</h2>
+        <p class="muted">{t('Abstand bis zur nächsten Wiederholung, Karten in der Wiederholung.')}</p>
+        <Bars rows={s.intervals} series={[{ key: 'n', label: t('Karten'), color: 'var(--s-young)' }]} labels={s.intervals.map((b) => tmsg(b.label))} tickEvery={2}
+          tip={(r) => `<b>${tmsg(r.label)}</b><br>${t('{n} Karten', { n: r.n })}`} />
       </section>
 
       <section>
-        <h2>Tageszeit</h2>
-        <p class="muted">Wann du lernst; Tooltip zeigt die Trefferquote.</p>
-        <Bars rows={s.hours} series={[{ key: 'total', label: 'Antworten', color: 'var(--s-new)' }]} labels={s.hours.map((_, i) => `${i}`)} tickEvery={6}
-          tip={(r, i) => `<b>${i}–${i + 1} Uhr</b><br>${r.total} Antworten<br>${pct(r.correct, r.total)} richtig`} />
+        <h2>{t('Tageszeit')}</h2>
+        <p class="muted">{t('Wann du lernst; Tooltip zeigt die Trefferquote.')}</p>
+        <Bars rows={s.hours} series={[{ key: 'total', label: t('Antworten'), color: 'var(--s-new)' }]} labels={s.hours.map((_, i) => `${i}`)} tickEvery={6}
+          tip={(r, i) => `<b>${t('{a}–{b} Uhr', { a: i, b: i + 1 })}</b><br>${t('{n} Antworten', { n: r.total })}<br>${t('{p} richtig', { p: pct(r.correct, r.total) })}`} />
       </section>
 
       <section>
-        <h2>Erinnerung</h2>
-        <p class="muted">Anteil richtig beantworteter Wiederholungen (ohne Lernphase).</p>
+        <h2>{t('Erinnerung')}</h2>
+        <p class="muted">{t('Anteil richtig beantworteter Wiederholungen (ohne Lernphase).')}</p>
         <table class="small">
-          <thead><tr><th>Zeitraum</th><th>Richtig</th><th>Wiederholungen</th></tr></thead>
+          <thead><tr><th>{t('Zeitraum')}</th><th>{t('Richtig')}</th><th>{t('Wiederholungen')}</th></tr></thead>
           <tbody>
             {#each RET_ROWS as [k, label]}
               <tr><td>{label}</td><td class="num">{s.retention[k]?.pct != null ? `${s.retention[k].pct} %` : '–'}</td><td class="num muted">{s.retention[k]?.total ?? 0}</td></tr>
@@ -181,21 +182,21 @@
       </section>
 
       <section class="wide">
-        <h2>Antworttasten</h2>
-        <p class="muted">Wie oft du welche Taste gedrückt hast, im gewählten Zeitraum.</p>
+        <h2>{t('Antworttasten')}</h2>
+        <p class="muted">{t('Wie oft du welche Taste gedrückt hast, im gewählten Zeitraum.')}</p>
         <table class="small">
-          <thead><tr><th>Kartenstatus</th>{#each BUTTONS as b}<th>{b}</th>{/each}<th>Richtig</th></tr></thead>
+          <thead><tr><th>{t('Kartenstatus')}</th>{#each BUTTONS as b}<th>{b}</th>{/each}<th>{t('Richtig')}</th></tr></thead>
           <tbody>
-            {#each [['learning', 'Lernen'], ['young', 'Jung'], ['mature', 'Reif']] as [k, label]}
+            {#each [['learning', 'Lernen (Status)'], ['young', 'Jung'], ['mature', 'Reif']] as [k, label]}
               {@const row = s.buttons[k] ?? [0, 0, 0, 0]}
-              <tr><td>{label}</td>{#each row as n}<td class="num">{n}</td>{/each}<td class="num muted">{pct(sum(row) - row[0], sum(row))}</td></tr>
+              <tr><td>{t(label)}</td>{#each row as n}<td class="num">{n}</td>{/each}<td class="num muted">{pct(sum(row) - row[0], sum(row))}</td></tr>
             {/each}
           </tbody>
         </table>
       </section>
     </div>
   {:else}
-    <div class="facts" aria-busy="true" aria-label="Statistik wird geladen">
+    <div class="facts" aria-busy="true" aria-label={t('Statistik wird geladen')}>
       {#each Array(5) as _}<div><span class="skel" style="width:64px;height:30px"></span><span class="skel" style="width:90px;height:12px;margin-top:8px"></span></div>{/each}
     </div>
     <div class="grid" aria-hidden="true">

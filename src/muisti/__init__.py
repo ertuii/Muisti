@@ -1,6 +1,6 @@
 import sys
 
-__version__ = "0.7.3"  # keep in sync with pyproject.toml; a release tag is v<this>
+__version__ = "0.8.0"  # keep in sync with pyproject.toml; a release tag is v<this>
 
 
 def _selfcheck() -> None:

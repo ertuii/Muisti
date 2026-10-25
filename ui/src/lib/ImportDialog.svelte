@@ -1,6 +1,7 @@
 <script>
   import { X } from '@lucide/svelte'
   import { api } from './api.js'
+  import { t, tmsg } from './i18n.js'
 
   let { path, flat, notify, onDone, onClose } = $props()
 
@@ -25,7 +26,7 @@
         deck = info.name.replace(/\.[^.]+$/, '') // file name as deck name; existing names are suggested
       }
     } catch (e) {
-      error = String(e?.message ?? e)
+      error = tmsg(e?.message ?? e)
     }
   }
 
@@ -41,10 +42,10 @@
       const msg = info.kind === 'csv'
         ? await api.import_file(path, deck.trim() || 'Standard', notetypeId, $state.snapshot(fieldColumns), tagsColumn)
         : await api.import_file(path)
-      notify(`Importiert: ${msg}`)
+      notify(t('Importiert: {msg}', { msg: tmsg(msg) }))
       onDone()
     } catch (e) {
-      error = String(e?.message ?? e)
+      error = tmsg(e?.message ?? e)
     } finally {
       busy = false
     }
@@ -56,30 +57,30 @@
 <svelte:window onkeydown={(e) => e.key === 'Escape' && onClose()} />
 
 <div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && onClose()}>
-  <div class="dialog" role="dialog" aria-modal="true" aria-label="Importieren">
+  <div class="dialog" role="dialog" aria-modal="true" aria-label={t('Importieren')}>
     <header>
-      <h2>Importieren</h2>
-      <button class="plain sm" aria-label="Schließen" onclick={onClose}><X size={18} /></button>
+      <h2>{t('Importieren')}</h2>
+      <button class="plain sm" aria-label={t('Schließen')} onclick={onClose}><X size={18} /></button>
     </header>
     <p class="file">{path.split(/[\\/]/).pop().replace(/^storage:[0-9a-f]{8}-/, '')}</p>
 
     {#if error}
       <p class="err" role="alert">{error}</p>
     {:else if !info}
-      <p class="muted">Lese Datei …</p>
+      <p class="muted">{t('Lese Datei …')}</p>
     {:else if info.kind === 'apkg'}
-      <p>Anki-Stapelpaket: Stapel, Karten, Lernstand und Medien werden übernommen. Vorhandene Karten werden nicht doppelt angelegt.</p>
+      <p>{t('Anki-Stapelpaket: Stapel, Karten, Lernstand und Medien werden übernommen. Vorhandene Karten werden nicht doppelt angelegt.')}</p>
     {:else if info.kind === 'colpkg'}
-      <p class="warn">Eine <b>.colpkg</b> ist eine komplette Sammlung und <b>ersetzt alle deine Karten</b>. Dein aktueller Stand wird vorher als Sicherung abgelegt (Einstellungen → Sicherungen).</p>
+      <p class="warn">{t('Eine .colpkg ist eine komplette Sammlung und')} <b>{t('ersetzt alle deine Karten')}</b>. {t('Dein aktueller Stand wird vorher als Sicherung abgelegt (Einstellungen → Sicherungen).')}</p>
     {:else}
       <div class="grid">
-        <label>In Stapel
-          <input list="ba-decks" bind:value={deck} placeholder="Name, neu oder vorhanden" />
+        <label>{t('In Stapel')}
+          <input list="ba-decks" bind:value={deck} placeholder={t('Name, neu oder vorhanden')} />
           <datalist id="ba-decks">{#each flat.filter((d) => !d.filtered) as d}<option value={d.name}></option>{/each}</datalist>
         </label>
-        <label>Notiztyp
+        <label>{t('Notiztyp')}
           <select bind:value={notetypeId} onchange={changeType}>
-            {#each types as t}<option value={t.id}>{t.name}</option>{/each}
+            {#each types as nt}<option value={nt.id}>{nt.name}</option>{/each}
           </select>
         </label>
       </div>
@@ -88,22 +89,22 @@
         {#each type?.fields ?? [] as f, i}
           <label>{f}
             <select bind:value={fieldColumns[i]}>
-              <option value={0}>(leer)</option>
-              {#each Array(info.columns) as _, c}<option value={c + 1}>Spalte {c + 1}</option>{/each}
+              <option value={0}>{t('(leer)')}</option>
+              {#each Array(info.columns) as _, c}<option value={c + 1}>{t('Spalte {n}', { n: c + 1 })}</option>{/each}
             </select>
           </label>
         {/each}
-        <label>Tags
+        <label>{t('Tags')}
           <select bind:value={tagsColumn}>
-            <option value={0}>(keine)</option>
-            {#each Array(info.columns) as _, c}<option value={c + 1}>Spalte {c + 1}</option>{/each}
+            <option value={0}>{t('(keine)')}</option>
+            {#each Array(info.columns) as _, c}<option value={c + 1}>{t('Spalte {n}', { n: c + 1 })}</option>{/each}
           </select>
         </label>
       </div>
 
       <div class="preview">
         <table>
-          <thead><tr>{#each Array(info.columns) as _, c}<th>Spalte {c + 1}</th>{/each}</tr></thead>
+          <thead><tr>{#each Array(info.columns) as _, c}<th>{t('Spalte {n}', { n: c + 1 })}</th>{/each}</tr></thead>
           <tbody>
             {#each info.preview as row}
               <tr>{#each Array(info.columns) as _, c}<td>{row[c] ?? ''}</td>{/each}</tr>
@@ -114,9 +115,9 @@
     {/if}
 
     <footer>
-      <button class="ghost" onclick={onClose}>Abbrechen</button>
+      <button class="ghost" onclick={onClose}>{t('Abbrechen')}</button>
       <button class:danger-fill={info?.kind === 'colpkg'} disabled={!info || busy || !!error} onclick={go}>
-        {busy ? 'Importiere …' : info?.kind === 'colpkg' ? 'Sammlung ersetzen' : 'Importieren'}
+        {busy ? t('Importiere …') : info?.kind === 'colpkg' ? t('Sammlung ersetzen') : t('Importieren')}
       </button>
     </footer>
   </div>

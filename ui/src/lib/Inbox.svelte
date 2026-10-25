@@ -1,6 +1,7 @@
 <script>
   import { api, hueFor } from './api.js'
   import Editor from './Editor.svelte'
+  import { t } from './i18n.js'
 
   // Cards Claude created wait here (suspended) until they are accepted, edited or thrown away.
   let { flat, notify, refresh } = $props()
@@ -23,10 +24,10 @@
     }
   }
 
-  const accept = (ids) => act(() => api.accept_inbox(ids), (n) => (n === 1 ? 'Übernommen, die Karte wird jetzt gelernt' : `${n} Notizen übernommen`))
+  const accept = (ids) => act(() => api.accept_inbox(ids), (n) => (n === 1 ? t('Übernommen, die Karte wird jetzt gelernt') : t('{n} Notizen übernommen', { n })))
   function reject(id) {
     if (confirmReject !== id) return (confirmReject = id)
-    act(() => api.reject_inbox([id]), () => 'Verworfen')
+    act(() => api.reject_inbox([id]), () => t('Verworfen'))
   }
 
   // "{{c1::Berlin::Hauptstadt}}" -> text parts with the cloze answers marked
@@ -49,18 +50,18 @@
 <div class="inbox">
   <header>
     <div>
-      <h1>Eingang</h1>
-      <p class="muted">Karten, die Claude für dich erstellt hat. Sie werden erst gelernt, wenn du sie übernimmst.</p>
+      <h1>{t('Eingang')}</h1>
+      <p class="muted">{t('Karten, die Claude für dich erstellt hat. Sie werden erst gelernt, wenn du sie übernimmst.')}</p>
     </div>
     {#if notes?.length > 1}
-      <button onclick={() => accept(notes.map((n) => n.note_id))}>Alle {notes.length} übernehmen</button>
+      <button onclick={() => accept(notes.map((n) => n.note_id))}>{t('Alle {n} übernehmen', { n: notes.length })}</button>
     {/if}
   </header>
 
   {#if notes && !notes.length}
     <div class="empty">
-      <b>Alles geprüft.</b>
-      <p class="muted">Bitte Claude zum Beispiel: „Erstelle Karten aus meinem Skript zu Kapitel 3“. In Claude gibt es dafür auch den fertigen Ablauf <i>Karten aus Material erstellen</i>.</p>
+      <b>{t('Alles geprüft.')}</b>
+      <p class="muted">{t('Bitte Claude zum Beispiel: „Erstelle Karten aus meinem Skript zu Kapitel 3“. In Claude gibt es dafür auch den fertigen Ablauf')} <i>{t('Karten aus Material erstellen')}</i>.</p>
     </div>
   {/if}
 
@@ -72,8 +73,8 @@
         {:else}
           <div class="meta">
             <span class="chip" style:background={hue(n.deck)}></span>{n.deck}
-            <span class="muted">· {n.notetype}{n.cards > 1 ? ` · ${n.cards} Karten` : ''}</span>
-            {#each n.tags as t}<span class="tag">{t}</span>{/each}
+            <span class="muted">· {n.notetype}{n.cards > 1 ? ` · ${t('{n} Karten', { n: n.cards })}` : ''}</span>
+            {#each n.tags as tag}<span class="tag">{tag}</span>{/each}
           </div>
           <div class="fields">
             {#each n.fields.filter(([, v]) => v) as [name, value], i}
@@ -81,10 +82,10 @@
             {/each}
           </div>
           <div class="actions">
-            <button class="sm" onclick={() => accept([n.note_id])}>Übernehmen</button>
-            <button class="ghost sm" onclick={() => (editing = n.note_id)}>Bearbeiten</button>
+            <button class="sm" onclick={() => accept([n.note_id])}>{t('Übernehmen')}</button>
+            <button class="ghost sm" onclick={() => (editing = n.note_id)}>{t('Bearbeiten')}</button>
             <button class="plain sm del" onclick={() => reject(n.note_id)} onblur={() => (confirmReject = null)}>
-              {confirmReject === n.note_id ? 'Wirklich verwerfen?' : 'Verwerfen'}
+              {confirmReject === n.note_id ? t('Wirklich verwerfen?') : t('Verwerfen')}
             </button>
           </div>
         {/if}

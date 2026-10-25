@@ -6,6 +6,7 @@ import { S, write, pull, flush, sb, mediaUrls, uploadMedia, unsynced, userId } f
 import { renderCard, stripHtml, clozeNumbers, clozeTexts, compareAnswer } from './render.js'
 import { timing, limits, queue, newOrderFor, outcomes, label, revlogFor, isLeech } from './sched.js'
 import { search as runSearch } from './search.js'
+import { lang, t as tr } from '../lib/i18n.js'
 
 const INBOX_TAG = 'Claude-Eingang'
 const FEATURES = { exams: false, plan: false, weak: false, inbox: true }
@@ -192,7 +193,7 @@ export async function next_card(deck_id) {
   return {
     card_id: card.id, note_id: card.nid, ord: card.ord,
     question: await withUrls(question), answer: await withUrls(answer), type_answer: !!typed, css: r.css,
-    buttons: results.map((x) => label(x.secs, x.learning)),
+    buttons: results.map((x) => label(x.secs, x.learning, (s, { n }) => tr(s, { n: n.toLocaleString(lang) }))),
     counts: q.counts, queue: card.queue === 3 ? 1 : card.queue, study: opts,
   }
 }
@@ -478,7 +479,7 @@ export function stats() {
   const mins = todays.reduce((s, r) => s + r.time, 0) / 60000
   return {
     cards: S.cards.size, notes: S.notes.size,
-    studied_today: todays.length ? `Heute ${todays.length} Karten in ${String(Math.round(mins * 10) / 10).replace('.', ',')} Minuten gelernt` : 'Heute noch keine Karten gelernt',
+    studied_today: todays.length ? tr('Heute {n} Karten in {m} Minuten gelernt', { n: todays.length, m: (Math.round(mins * 10) / 10).toLocaleString(lang) }) : tr('Heute noch keine Karten gelernt'),
     due_today: decks().reduce((s, d) => s + d.new + d.learn + d.review, 0),
   }
 }
@@ -523,6 +524,8 @@ export function save_features(f) {
 }
 export const theme = () => cfg('betteranki.theme', 'system')
 export const set_theme = (v) => setCfg('betteranki.theme', v)
+export const language = () => cfg('betteranki.lang', null)
+export const set_language = (v) => setCfg('betteranki.lang', v)
 
 const PREFS = { // Anki's preferences ↔ collection config keys
   scheduling: { rollover: ['rollover', 4], learn_ahead_secs: ['collapseTime', 1200], day_learn_first: ['dayLearnFirst', false] },

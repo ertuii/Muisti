@@ -2,6 +2,7 @@
   import DOMPurify from 'dompurify'
   import { api } from './api.js'
   import IOEditor from './IOEditor.svelte'
+  import { t } from './i18n.js'
 
   // Note HTML (imported decks, cards from Claude) runs in the app window here, unlike CardFrame's sandbox:
   // everything that reaches a field is sanitized, or it could call window.pywebview.api.
@@ -61,20 +62,20 @@
   async function save() {
     if (saving) return
     const tagList = tags.split(/\s+/).filter(Boolean)
-    if (type?.io && !fields[names[1]]) return notify('Füge zuerst ein Bild ein.', true)
-    if (type?.io && !fields[names[0]]) return notify('Zieh auf dem Bild mindestens einen Bereich auf.', true)
+    if (type?.io && !fields[names[1]]) return notify(t('Füge zuerst ein Bild ein.'), true)
+    if (type?.io && !fields[names[0]]) return notify(t('Zieh auf dem Bild mindestens einen Bereich auf.'), true)
     saving = true
     try {
       if (noteId) {
         // fields left untouched keep their stored HTML; only edited ones are saved in sanitized form
         const out = Object.fromEntries(Object.entries($state.snapshot(fields)).map(([k, v]) => [k, v === shown[k] ? stored[k] : v]))
         await api.update_note(noteId, out, tagList, deckId)
-        notify('Gespeichert')
+        notify(t('Gespeichert'))
       } else {
         await api.add_note(typeId, deckId, $state.snapshot(fields), tagList)
         remember('ba.type', typeId)
         remember('ba.deck', deckId)
-        notify('Karte hinzugefügt')
+        notify(t('Karte hinzugefügt'))
         resetFields()
         editors[0]?.focus()
       }
@@ -153,12 +154,12 @@
 
 <form class="editor" onsubmit={(e) => { e.preventDefault(); save() }}>
   <div class="meta">
-    <label>Notiztyp
+    <label>{t('Notiztyp')}
       <select bind:value={typeId} onchange={resetFields} disabled={!!noteId}>
-        {#each types as t}<option value={t.id}>{t.name}</option>{/each}
+        {#each types as nt}<option value={nt.id}>{nt.name}</option>{/each}
       </select>
     </label>
-    <label>Stapel
+    <label>{t('Stapel')}
       <select bind:value={deckId}>
         {#each flat as d}<option value={d.id}>{d.name}</option>{/each}
       </select>
@@ -175,25 +176,25 @@
       <span class="fname">{name}</span>
       <div class="rich" contenteditable="true" role="textbox" aria-multiline="true" aria-label={name} tabindex="0"
         bind:this={editors[i]} bind:innerHTML={fields[name]} onkeydown={onKey} onpaste={onPaste} ondrop={onDrop}></div>
-      {#if i === 0 && dupe}<span class="dupe">Eine Notiz mit diesem ersten Feld gibt es schon.</span>{/if}
+      {#if i === 0 && dupe}<span class="dupe">{t('Eine Notiz mit diesem ersten Feld gibt es schon.')}</span>{/if}
     </div>
     {/if}
   {/each}
 
   <label class="field">
-    <span class="fname">Tags</span>
-    <input bind:value={tags} placeholder="durch Leerzeichen getrennt" onkeydown={onKey} />
+    <span class="fname">{t('Tags')}</span>
+    <input bind:value={tags} placeholder={t('durch Leerzeichen getrennt')} onkeydown={onKey} />
   </label>
 
   <div class="bar">
     {#if type?.cloze}
       <!-- mousedown keeps the selection in the field; also the only way on a phone -->
-      <button type="button" class="ghost hint" onmousedown={(e) => e.preventDefault()} onclick={cloze} title="Markierten Text zur Lücke machen">Lücke setzen <kbd>⌘⇧C</kbd></button>
+      <button type="button" class="ghost hint" onmousedown={(e) => e.preventDefault()} onclick={cloze} title={t('Markierten Text zur Lücke machen')}>{t('Lücke setzen')} <kbd>⌘⇧C</kbd></button>
     {/if}
-    {#if onCancel}<button type="button" class="ghost" onclick={onCancel}>Abbrechen</button>{/if}
-    <button type="submit" disabled={saving || !flat.length}>{noteId ? 'Speichern' : 'Hinzufügen'} <kbd class="inv">⌘↵</kbd></button>
+    {#if onCancel}<button type="button" class="ghost" onclick={onCancel}>{t('Abbrechen')}</button>{/if}
+    <button type="submit" disabled={saving || !flat.length}>{noteId ? t('Speichern') : t('Hinzufügen')} <kbd class="inv">⌘↵</kbd></button>
   </div>
-  {#if !flat.length}<p class="muted">Lege zuerst einen Stapel an.</p>{/if}
+  {#if !flat.length}<p class="muted">{t('Lege zuerst einen Stapel an.')}</p>{/if}
 </form>
 
 <style>

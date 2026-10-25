@@ -1,6 +1,7 @@
 <script>
   import { ArrowLeft } from '@lucide/svelte'
   import { api } from './api.js'
+  import { lang, t } from './i18n.js'
 
   let { deckId, notify, onBack } = $props()
 
@@ -15,9 +16,9 @@
   // Anki stores steps in minutes; show them as "1m 10m 1d".
   const fmtSteps = (xs) => xs.map((m) => (m >= 1440 && m % 1440 === 0 ? `${m / 1440}d` : m >= 60 && m % 60 === 0 ? `${m / 60}h` : `${m}m`)).join(' ')
   function parseSteps(text) {
-    return text.split(/[\s,]+/).filter(Boolean).map((t) => {
-      const m = t.match(/^(\d+(?:[.,]\d+)?)\s*([smhd]?)$/i)
-      if (!m) throw new Error(`„${t}“ ist kein Schritt. Beispiele: 10m, 1h, 1d`)
+    return text.split(/[\s,]+/).filter(Boolean).map((s) => {
+      const m = s.match(/^(\d+(?:[.,]\d+)?)\s*([smhd]?)$/i)
+      if (!m) throw new Error(t('„{s}“ ist kein Schritt. Beispiele: 10m, 1h, 1d', { s }))
       const n = Number(m[1].replace(',', '.'))
       return { s: n / 60, m: n, h: n * 60, d: n * 1440 }[(m[2] || 'm').toLowerCase()]
     })
@@ -25,7 +26,7 @@
 
   const SM2 = (x) => !x.fsrs
   const FSRS = (x) => x.fsrs
-  const WEEKDAYS = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag']
+  const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7].map((d) => new Date(2024, 0, d).toLocaleDateString(lang, { weekday: 'long' })) // 1 Jan 2024: a Monday
 
   // Every option of an Anki preset, grouped like Anki's own options screen.
   const SECTIONS = [
@@ -97,7 +98,7 @@
     try {
       const data = { ...$state.snapshot(o), learn_steps: parseSteps(steps.learn_steps), relearn_steps: parseSteps(steps.relearn_steps), fsrs_reschedule: reschedule, limits_to_subdecks: toSubdecks }
       await api.save_deck_options(deckId, data)
-      notify(toSubdecks ? 'Optionen gespeichert, Limits auch für die Unterstapel' : 'Optionen gespeichert')
+      notify(toSubdecks ? t('Optionen gespeichert, Limits auch für die Unterstapel') : t('Optionen gespeichert'))
       toSubdecks = false
       await load()
     } catch (e) {
@@ -111,7 +112,7 @@
     if (!newPreset?.trim()) return (newPreset = null)
     try {
       await api.new_preset(deckId, newPreset)
-      notify(`Voreinstellung „${newPreset}“ angelegt`)
+      notify(t('Voreinstellung „{name}“ angelegt', { name: newPreset }))
       newPreset = null
       await load()
     } catch (e) {
@@ -123,9 +124,9 @@
     optimizing = true
     try {
       const r = await api.optimize_fsrs(deckId)
-      notify(r.changed ? `FSRS an ${r.reviews} Wiederholungen angepasst` : r.reviews < 400
-        ? `Erst ${r.reviews} Wiederholungen – FSRS nutzt bis dahin Standardwerte`
-        : 'Parameter sind bereits optimal')
+      notify(r.changed ? t('FSRS an {n} Wiederholungen angepasst', { n: r.reviews }) : r.reviews < 400
+        ? t('Erst {n} Wiederholungen – FSRS nutzt bis dahin Standardwerte', { n: r.reviews })
+        : t('Parameter sind bereits optimal'))
       await load()
     } catch (e) {
       notify(String(e?.message ?? e), true)
@@ -143,13 +144,13 @@
 {#snippet field(f)}
   {#if !f.show || f.show(o)}
     {#if f.kind === 'bool'}
-      <label class="check"><input type="checkbox" bind:checked={o[f.k]} />{f.label}</label>
+      <label class="check"><input type="checkbox" bind:checked={o[f.k]} />{t(f.label)}</label>
     {:else}
-      <label>{f.label}
+      <label>{t(f.label)}
         {#if f.kind === 'steps'}
           <input bind:value={steps[f.k]} placeholder="1m 10m" />
         {:else if f.kind === 'enum'}
-          <select bind:value={o[f.k]}>{#each f.opts as label, i}<option value={i}>{label}</option>{/each}</select>
+          <select bind:value={o[f.k]}>{#each f.opts as label, i}<option value={i}>{t(label)}</option>{/each}</select>
         {:else if f.kind === 'int'}
           <input type="number" min="0" step="1" bind:value={o[f.k]} />
         {:else if f.kind === 'float'}
@@ -159,7 +160,7 @@
         {:else}
           <input bind:value={o[f.k]} />
         {/if}
-        {#if f.help}<small>{f.help}</small>{/if}
+        {#if f.help}<small>{t(f.help)}</small>{/if}
       </label>
     {/if}
   {/if}
@@ -167,70 +168,70 @@
 
 <div class="opts">
   <header>
-    <button class="plain" onclick={onBack}><ArrowLeft size={17} />Zurück</button>
+    <button class="plain" onclick={onBack}><ArrowLeft size={17} />{t('Zurück')}</button>
   </header>
   {#if o}
-    <h1>Optionen für „{o.deck_name}“</h1>
+    <h1>{t('Optionen für „{name}“', { name: o.deck_name })}</h1>
 
     <section>
-      <h2>Voreinstellung</h2>
-      <p class="muted">Optionen gehören zu einer Voreinstellung, die mehrere Stapel teilen können.</p>
+      <h2>{t('Voreinstellung')}</h2>
+      <p class="muted">{t('Optionen gehören zu einer Voreinstellung, die mehrere Stapel teilen können.')}</p>
       <div class="row">
         <select bind:value={o.preset_id} onchange={() => load(o.preset_id)}>
-          {#each o.presets as p}<option value={p.id}>{p.name} · {p.decks} Stapel</option>{/each}
+          {#each o.presets as p}<option value={p.id}>{p.name} · {t('{n} Stapel', { n: p.decks })}</option>{/each}
         </select>
         {#if newPreset === null}
-          <button class="ghost" onclick={() => (newPreset = '')}>Neue Voreinstellung</button>
+          <button class="ghost" onclick={() => (newPreset = '')}>{t('Neue Voreinstellung')}</button>
         {:else}
           <!-- svelte-ignore a11y_autofocus -->
-          <input bind:value={newPreset} placeholder="Name" autofocus onkeydown={(e) => e.key === 'Enter' ? createPreset() : e.key === 'Escape' && (newPreset = null)} />
-          <button class="ghost" onclick={createPreset}>Anlegen</button>
+          <input bind:value={newPreset} placeholder={t('Name')} autofocus onkeydown={(e) => e.key === 'Enter' ? createPreset() : e.key === 'Escape' && (newPreset = null)} />
+          <button class="ghost" onclick={createPreset}>{t('Anlegen')}</button>
         {/if}
       </div>
     </section>
 
     <section>
-      <h2>Tageslimits</h2>
+      <h2>{t('Tageslimits')}</h2>
       <div class="fields">
-        <label>Neue Karten pro Tag<input type="number" min="0" placeholder={String(o.new_per_day)} value={o.limits.new ?? ''} oninput={limitInput('new')} /></label>
-        <label>Wiederholungen pro Tag<input type="number" min="0" placeholder={String(o.reviews_per_day)} value={o.limits.review ?? ''} oninput={limitInput('review')} /></label>
-        <label>Nur heute: neue Karten<input type="number" min="0" placeholder="wie sonst" value={o.limits.new_today ?? ''} oninput={limitInput('new_today')} /></label>
-        <label>Nur heute: Wiederholungen<input type="number" min="0" placeholder="wie sonst" value={o.limits.review_today ?? ''} oninput={limitInput('review_today')} /></label>
+        <label>{t('Neue Karten pro Tag')}<input type="number" min="0" placeholder={String(o.new_per_day)} value={o.limits.new ?? ''} oninput={limitInput('new')} /></label>
+        <label>{t('Wiederholungen pro Tag')}<input type="number" min="0" placeholder={String(o.reviews_per_day)} value={o.limits.review ?? ''} oninput={limitInput('review')} /></label>
+        <label>{t('Nur heute: neue Karten')}<input type="number" min="0" placeholder={t('wie sonst')} value={o.limits.new_today ?? ''} oninput={limitInput('new_today')} /></label>
+        <label>{t('Nur heute: Wiederholungen')}<input type="number" min="0" placeholder={t('wie sonst')} value={o.limits.review_today ?? ''} oninput={limitInput('review_today')} /></label>
       </div>
-      <p class="muted">Gilt nur für diesen Stapel. Leer = {o.new_per_day} neue / {o.reviews_per_day} Wiederholungen aus der Voreinstellung.</p>
+      <p class="muted">{t('Gilt nur für diesen Stapel. Leer = {n} neue / {r} Wiederholungen aus der Voreinstellung.', { n: o.new_per_day, r: o.reviews_per_day })}</p>
       <div class="checks">
         {#if o.subdecks}
-          <label class="check"><input type="checkbox" bind:checked={toSubdecks} />Auch für alle {o.subdecks} Unterstapel übernehmen</label>
+          <label class="check"><input type="checkbox" bind:checked={toSubdecks} />{t('Auch für alle {n} Unterstapel übernehmen', { n: o.subdecks })}</label>
         {/if}
-        <label class="check"><input type="checkbox" bind:checked={o.new_cards_ignore_review_limit} />Neue Karten ignorieren das Wiederholungslimit <span class="muted">(alle Stapel)</span></label>
-        <label class="check"><input type="checkbox" bind:checked={o.apply_all_parent_limits} />Limits aller übergeordneten Stapel anwenden <span class="muted">(alle Stapel)</span></label>
+        <label class="check"><input type="checkbox" bind:checked={o.new_cards_ignore_review_limit} />{t('Neue Karten ignorieren das Wiederholungslimit')} <span class="muted">{t('(alle Stapel)')}</span></label>
+        <label class="check"><input type="checkbox" bind:checked={o.apply_all_parent_limits} />{t('Limits aller übergeordneten Stapel anwenden')} <span class="muted">{t('(alle Stapel)')}</span></label>
       </div>
     </section>
 
     <section>
-      <h2>Planung</h2>
-      <label class="check"><input type="checkbox" bind:checked={o.fsrs} />FSRS verwenden <span class="muted">(alle Stapel)</span></label>
-      <p class="muted">FSRS plant Wiederholungen aus deinem Lernverlauf statt mit festen Faktoren und braucht meist weniger Wiederholungen für dieselbe Erinnerung.</p>
+      <h2>{t('Planung')}</h2>
+      <label class="check"><input type="checkbox" bind:checked={o.fsrs} />{t('FSRS verwenden')} <span class="muted">{t('(alle Stapel)')}</span></label>
+      <p class="muted">{t('FSRS plant Wiederholungen aus deinem Lernverlauf statt mit festen Faktoren und braucht meist weniger Wiederholungen für dieselbe Erinnerung.')}</p>
       {#if o.fsrs}
         <div class="fields">
-          <label>Gewünschte Erinnerung
+          <label>{t('Gewünschte Erinnerung')}
             <span class="range"><input type="range" min="0.7" max="0.97" step="0.01" bind:value={o.desired_retention} /><b class="num">{Math.round(o.desired_retention * 100)} %</b></span>
-            <small>Höher = sicherer, aber mehr Wiederholungen pro Tag.</small>
+            <small>{t('Höher = sicherer, aber mehr Wiederholungen pro Tag.')}</small>
           </label>
           <div class="opt">
-            <span class="lbl">Parameter</span>
-            <button class="ghost" disabled={optimizing} onclick={optimize}>{optimizing ? 'Optimiere …' : 'An meinen Verlauf anpassen'}</button>
-            <small>{o.fsrs_optimized ? 'Angepasst an deinen Verlauf.' : 'Noch Standardwerte.'}</small>
+            <span class="lbl">{t('Parameter')}</span>
+            <button class="ghost" disabled={optimizing} onclick={optimize}>{optimizing ? t('Optimiere …') : t('An meinen Verlauf anpassen')}</button>
+            <small>{o.fsrs_optimized ? t('Angepasst an deinen Verlauf.') : t('Noch Standardwerte.')}</small>
           </div>
         </div>
-        <label class="check"><input type="checkbox" bind:checked={reschedule} />Karten beim Speichern neu planen <span class="muted">(nach Änderungen an FSRS)</span></label>
+        <label class="check"><input type="checkbox" bind:checked={reschedule} />{t('Karten beim Speichern neu planen')} <span class="muted">{t('(nach Änderungen an FSRS)')}</span></label>
       {/if}
     </section>
 
     {#each SECTIONS as sec}
       <section>
-        <h2>{sec.title}</h2>
-        {#if sec.help}<p class="muted">{sec.help}</p>{/if}
+        <h2>{t(sec.title)}</h2>
+        {#if sec.help}<p class="muted">{t(sec.help)}</p>{/if}
         <div class="fields">
           {#each sec.fields.filter((f) => f.kind !== 'bool') as f}{@render field(f)}{/each}
         </div>
@@ -242,13 +243,13 @@
 
     {#if o.fsrs}
       <section>
-        <h2>Leichte Tage</h2>
-        <p class="muted">An diesen Tagen plant FSRS weniger Wiederholungen ein.</p>
+        <h2>{t('Leichte Tage')}</h2>
+        <p class="muted">{t('An diesen Tagen plant FSRS weniger Wiederholungen ein.')}</p>
         <div class="fields">
           {#each WEEKDAYS as day, i}
             <label>{day}
               <select bind:value={o.easy_days_percentages[i]}>
-                <option value={1}>Normal</option><option value={0.5}>Weniger</option><option value={0}>Möglichst keine</option>
+                <option value={1}>{t('Normal')}</option><option value={0.5}>{t('Weniger')}</option><option value={0}>{t('Möglichst keine')}</option>
               </select>
             </label>
           {/each}
@@ -257,11 +258,11 @@
     {/if}
 
     <div class="bar">
-      <button class="ghost" onclick={onBack}>Abbrechen</button>
-      <button disabled={saving} onclick={save}>{saving ? 'Speichere …' : 'Speichern'}</button>
+      <button class="ghost" onclick={onBack}>{t('Abbrechen')}</button>
+      <button disabled={saving} onclick={save}>{saving ? t('Speichere …') : t('Speichern')}</button>
     </div>
   {:else}
-    <span class="skel" style="width:320px;max-width:100%;height:30px" aria-busy="true" aria-label="Optionen werden geladen"></span>
+    <span class="skel" style="width:320px;max-width:100%;height:30px" aria-busy="true" aria-label={t('Optionen werden geladen')}></span>
     {#each [1, 4, 3] as rows}
       <section aria-hidden="true">
         <span class="skel" style="width:160px;height:18px"></span>

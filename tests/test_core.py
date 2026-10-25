@@ -52,7 +52,22 @@ def test_data_dir_moves_betteranki_folder():
         os.environ.update(saved)
 
 
+def test_language():
+    path = str(Path(tempfile.mkdtemp()) / "c.anki2")
+    core = Core(path)
+    assert core.language() is None
+    core.set_language("es")  # Anki's own strings follow, the collection stays usable
+    assert core._col.tr.statistics_reviews(reviews=3) == "⁨3⁩ repasos"
+    core.create_deck("Verbos")
+    core._close()
+    core = Core(path)  # remembered across restarts
+    assert core.language() == "es" and core._col.tr.statistics_reviews(reviews=3) == "⁨3⁩ repasos"
+    core.set_language("de")
+    core._close()
+
+
 if __name__ == "__main__":
     test_roundtrip()
     test_data_dir_moves_betteranki_folder()
+    test_language()
     print("ok")

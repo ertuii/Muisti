@@ -1,5 +1,6 @@
 <script>
   import { api } from './api.js'
+  import { lang, t } from './i18n.js'
 
   // Finds Anki desktop profiles on this computer and copies or merges one into Muisti.
   let { notify, onDone, hasCards = false, compact = false } = $props()
@@ -27,7 +28,7 @@
     }
   }
 
-  const when = (t) => new Date(t * 1000).toLocaleDateString('de-DE', { dateStyle: 'medium' })
+  const when = (secs) => new Date(secs * 1000).toLocaleDateString(lang, { dateStyle: 'medium' })
 
   load()
 </script>
@@ -38,18 +39,18 @@
       <li>
         <div>
           <b>{p.name}</b>
-          <span class="muted num">{p.locked ? 'Anki ist geöffnet' : `${p.cards} Karten · ${p.notes} Notizen · ${p.media} Medien`} · zuletzt {when(p.modified)}</span>
+          <span class="muted num">{p.locked ? t('Anki ist geöffnet') : t('{cards} Karten · {notes} Notizen · {media} Medien', p)} · {t('zuletzt {date}', { date: when(p.modified) })}</span>
         </div>
         <div class="actions">
           {#if p.locked}
-            <button class="ghost sm" onclick={load}>Anki geschlossen? Neu prüfen</button>
+            <button class="ghost sm" onclick={load}>{t('Anki geschlossen? Neu prüfen')}</button>
           {:else if hasCards}
-            <button class="sm" disabled={!!busy} onclick={() => migrate(p, 'merge')}>{busy === p.path ? 'Übernehme …' : 'Hinzufügen'}</button>
+            <button class="sm" disabled={!!busy} onclick={() => migrate(p, 'merge')}>{busy === p.path ? t('Übernehme …') : t('Hinzufügen')}</button>
             <button class="ghost sm" disabled={!!busy} onclick={() => migrate(p, 'replace')} onblur={() => (confirmReplace = null)}>
-              {confirmReplace === p.path ? 'Meine Karten ersetzen?' : 'Ersetzen'}
+              {confirmReplace === p.path ? t('Meine Karten ersetzen?') : t('Ersetzen')}
             </button>
           {:else}
-            <button class="sm" disabled={!!busy} onclick={() => migrate(p, 'replace')}>{busy === p.path ? 'Übernehme …' : 'Übernehmen'}</button>
+            <button class="sm" disabled={!!busy} onclick={() => migrate(p, 'replace')}>{busy === p.path ? t('Übernehme …') : t('Übernehmen (Anki)')}</button>
           {/if}
         </div>
       </li>
@@ -57,12 +58,12 @@
   </ul>
   {#if !compact}
     <p class="muted small">
-      {hasCards ? '„Hinzufügen“ führt die Anki-Karten mit deinen zusammen, „Ersetzen“ übernimmt die Anki-Sammlung 1:1 (dein Stand landet in den Sicherungen).' : 'Übernimmt Stapel, Karten, Lernverlauf, Notiztypen, Optionen und Medien.'}
-      Anki selbst bleibt unverändert.
+      {hasCards ? t('„Hinzufügen“ führt die Anki-Karten mit deinen zusammen, „Ersetzen“ übernimmt die Anki-Sammlung 1:1 (dein Stand landet in den Sicherungen).') : t('Übernimmt Stapel, Karten, Lernverlauf, Notiztypen, Optionen und Medien.')}
+      {t('Anki selbst bleibt unverändert.')}
     </p>
   {/if}
 {:else if profiles && !compact}
-  <p class="muted small">Keine Anki-Installation gefunden. Exportiere in Anki über <i>Datei → Exportieren</i> eine <b>.colpkg</b>-Datei und ziehe sie hier ins Fenster.</p>
+  <p class="muted small">{t('Keine Anki-Installation gefunden. Exportiere in Anki über „Datei → Exportieren“ eine .colpkg-Datei und ziehe sie hier ins Fenster.')}</p>
 {/if}
 
 <style>

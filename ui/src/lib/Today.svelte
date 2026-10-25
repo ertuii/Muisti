@@ -3,6 +3,7 @@
   import { api, hueFor, total, web } from './api.js'
   import Strip from './Strip.svelte'
   import AnkiMigration from './AnkiMigration.svelte'
+  import { lang, t } from './i18n.js'
 
   let { decks, flat, overview, run, notify, onStudy, onAdd, onOptions, onPrelearn, onPlan, onInbox } = $props()
 
@@ -21,17 +22,17 @@
   const ORDERS = [
     [1, 'Zufällig'], [6, 'Nach Fälligkeit'], [8, 'Am stärksten überfällig'], [2, 'Kleinstes Intervall zuerst'],
     [3, 'Größtes Intervall zuerst'], [4, 'Meiste Fehler zuerst'], [5, 'Reihenfolge des Hinzufügens'], [0, 'Am längsten nicht gesehen'],
-  ]
+  ].map(([v, l]) => [v, t(l)])
 
   async function createFiltered() {
     const f = filtered
-    if (!f.name.trim() || !f.search.trim()) return notify('Name und Suche angeben', true)
-    const id = await run(() => api.create_filtered_deck(f.name, f.search, f.limit, f.order, f.resched), 'Gefilterter Stapel angelegt')
+    if (!f.name.trim() || !f.search.trim()) return notify(t('Name und Suche angeben'), true)
+    const id = await run(() => api.create_filtered_deck(f.name, f.search, f.limit, f.order, f.resched), t('Gefilterter Stapel angelegt'))
     if (id) filtered = null
   }
 
 
-  const dateLabel = new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })
+  const dateLabel = new Date().toLocaleDateString(lang, { weekday: 'long', day: 'numeric', month: 'long' })
 
   // Hide children of collapsed decks.
   const rows = $derived.by(() => {
@@ -56,7 +57,7 @@
   }
 
   async function create() {
-    if (newName.trim()) await run(() => api.create_deck(newName), 'Stapel angelegt')
+    if (newName.trim()) await run(() => api.create_deck(newName), t('Stapel angelegt'))
     creating = false
     newName = ''
   }
@@ -69,13 +70,13 @@
   async function exportDeck(d) {
     menuFor = null
     const path = await api.pick_export_file(d.short)
-    if (path) await run(() => api.export_deck(path, d.id, true, true), (n) => `${n} Notizen exportiert`)
+    if (path) await run(() => api.export_deck(path, d.id, true, true), (n) => t('{n} Notizen exportiert', { n }))
   }
 
   async function reset(d) {
     if (confirmReset !== d.id) return (confirmReset = d.id)
     menuFor = confirmReset = null
-    await run(() => api.reset_deck(d.id), (n) => `„${d.name}“: ${n} ${n === 1 ? 'Karte' : 'Karten'} wieder neu`)
+    await run(() => api.reset_deck(d.id), (n) => t(n === 1 ? '„{name}“: {n} Karte wieder neu' : '„{name}“: {n} Karten wieder neu', { name: d.name, n }))
   }
 
   async function remove(d) {
@@ -84,7 +85,7 @@
       return
     }
     menuFor = confirmDelete = null
-    await run(() => api.delete_deck(d.id), `„${d.name}“ gelöscht`)
+    await run(() => api.delete_deck(d.id), t('„{name}“ gelöscht', { name: d.name }))
   }
 </script>
 
@@ -95,30 +96,30 @@
     <div>
       <div class="muted">{dateLabel}</div>
       <div class="big num">{overview?.due ?? '–'}</div>
-      <div class="muted">{overview?.due === 1 ? 'Karte' : 'Karten'} fällig heute</div>
+      <div class="muted">{overview?.due === 1 ? t('Karte fällig heute') : t('Karten fällig heute')}</div>
     </div>
     {#if overview}
       <dl>
-        <div><dt class="num">{overview.minutes} min</dt><dd>geschätzt</dd></div>
-        <div><dt class="num">{overview.streak} {overview.streak === 1 ? 'Tag' : 'Tage'}</dt><dd>Serie</dd></div>
-        <div><dt class="num">{overview.retention != null ? `${overview.retention} %` : '–'}</dt><dd>Erinnerung, 30 Tage</dd></div>
+        <div><dt class="num">{overview.minutes} min</dt><dd>{t('geschätzt')}</dd></div>
+        <div><dt class="num">{t(overview.streak === 1 ? '{n} Tag' : '{n} Tage', { n: overview.streak })}</dt><dd>{t('Serie')}</dd></div>
+        <div><dt class="num">{overview.retention != null ? `${overview.retention} %` : '–'}</dt><dd>{t('Erinnerung, 30 Tage')}</dd></div>
       </dl>
     {/if}
     <div class="actions">
-      <button class="ghost" onclick={onAdd}>Karten hinzufügen <kbd>A</kbd></button>
+      <button class="ghost" onclick={onAdd}>{t('Karten hinzufügen')} <kbd>A</kbd></button>
       <button disabled={!firstDue} onclick={() => onStudy(firstDue)}>
-        {firstDue ? `${firstDue.name} lernen` : 'Alles erledigt'} {#if firstDue}<kbd class="inv">Leertaste</kbd>{/if}
+        {firstDue ? t('{name} lernen', { name: firstDue.name }) : t('Alles erledigt')} {#if firstDue}<kbd class="inv">{t('Leertaste')}</kbd>{/if}
       </button>
     </div>
   </header>
 
   {#if empty}
     <section class="welcome">
-      <h2>Schon Karten in Anki?</h2>
+      <h2>{t('Schon Karten in Anki?')}</h2>
       {#if web}
-        <p class="muted">Exportiere sie in Anki (Datei → Exportieren, „Anki-Sammlungspaket (.colpkg)“) und importiere die Datei hier über „Importieren“ oder per Drag & Drop. Oder nutze die <a href="https://github.com/ertuii/Muisti/releases/latest">Desktop-App</a>: Sie übernimmt Anki direkt und gleicht über dein Konto ab.</p>
+        <p class="muted">{t('Exportiere sie in Anki (Datei → Exportieren, „Anki-Sammlungspaket (.colpkg)“) und importiere die Datei hier über „Importieren“ oder per Drag & Drop. Oder nutze die')} <a href="https://github.com/ertuii/Muisti/releases/latest">{t('Desktop-App')}</a>{t(': Sie übernimmt Anki direkt und gleicht über dein Konto ab.')}</p>
       {:else}
-        <p class="muted">Übernimm deine Sammlung mit Lernstand. Oder ziehe eine .apkg- oder .colpkg-Datei ins Fenster, bzw. bitte Claude, Karten zu erstellen.</p>
+        <p class="muted">{t('Übernimm deine Sammlung mit Lernstand. Oder ziehe eine .apkg- oder .colpkg-Datei ins Fenster, bzw. bitte Claude, Karten zu erstellen.')}</p>
         <AnkiMigration {notify} compact onDone={() => { empty = false; run(async () => {}) }} />
       {/if}
     </section>
@@ -126,19 +127,19 @@
 
   {#if overview?.inbox}
     <div class="notice">
-      <span><b>{overview.inbox} {overview.inbox === 1 ? 'Notiz' : 'Notizen'} von Claude</b> {overview.inbox === 1 ? 'wartet' : 'warten'} im Eingang darauf, dass du sie durchsiehst.</span>
-      <button class="ghost sm" onclick={onInbox}>Ansehen</button>
+      <span><b>{t(overview.inbox === 1 ? '{n} Notiz von Claude' : '{n} Notizen von Claude', { n: overview.inbox })}</b> {overview.inbox === 1 ? t('wartet im Eingang darauf, dass du sie durchsiehst.') : t('warten im Eingang darauf, dass du sie durchsiehst.')}</span>
+      <button class="ghost sm" onclick={onInbox}>{t('Ansehen')}</button>
     </div>
   {/if}
 
   {#if overview?.features.plan}
     <div class="notice plan">
-      <span><b>Lernplan</b> <span class="muted">Mischt alle Stapel, nahe Prüfungen zuerst.</span></span>
+      <span><b>{t('Lernplan')}</b> <span class="muted">{t('Mischt alle Stapel, nahe Prüfungen zuerst.')}</span></span>
       <span class="row">
-        <select bind:value={planMinutes} aria-label="Dauer">
-          {#each [10, 15, 20, 30, 45, 60, 90] as m}<option value={m}>{m} Minuten</option>{/each}
+        <select bind:value={planMinutes} aria-label={t('Dauer')}>
+          {#each [10, 15, 20, 30, 45, 60, 90] as m}<option value={m}>{t('{n} Minuten', { n: m })}</option>{/each}
         </select>
-        <button class="sm" disabled={!overview.due} onclick={() => onPlan(planMinutes)}>Starten</button>
+        <button class="sm" disabled={!overview.due} onclick={() => onPlan(planMinutes)}>{t('Starten')}</button>
       </span>
     </div>
   {/if}
@@ -150,7 +151,7 @@
   <section>
     <table>
       <thead>
-        <tr><th>Stapel</th><th>Neu</th><th>Lernen</th><th><span class="long">Wiederholen</span><span class="short">Wdh.</span></th><th class="w"></th></tr>
+        <tr><th>{t('Stapel')}</th><th>{t('Neu')}</th><th>{t('Lernen (Status)')}</th><th><span class="long">{t('Wiederholen')}</span><span class="short">{t('Wdh.')}</span></th><th class="w"></th></tr>
       </thead>
       <tbody>
         {#each rows as d (d.id)}
@@ -158,7 +159,7 @@
             <td class="name-cell">
               <span class="deck" style:padding-left="{d.depth * 22}px">
                 {#if d.children.length}
-                  <button class="plain twist" class:open={!d.collapsed} aria-label={d.collapsed ? 'Aufklappen' : 'Zuklappen'}
+                  <button class="plain twist" class:open={!d.collapsed} aria-label={d.collapsed ? t('Aufklappen') : t('Zuklappen')}
                     onclick={() => run(() => api.set_collapsed(d.id, !d.collapsed))}><ChevronRight size={15} /></button>
                 {:else}<span class="twist"></span>{/if}
                 {#if d.depth === 0}<span class="chip" style:background={hueFor(d.top)}></span>{/if}
@@ -170,7 +171,7 @@
                   <button class="plain dname" class:top={d.depth === 0} onclick={() => onStudy(d)}>{d.short}</button>
                 {/if}
                 {#if overview?.overdue[d.id] && d.depth === 0}
-                  <span class="warn">{overview.overdue[d.id]} überfällig</span>
+                  <span class="warn">{t('{n} überfällig', { n: overview.overdue[d.id] })}</span>
                 {/if}
               </span>
             </td>
@@ -179,24 +180,24 @@
             <td class="num c-review" class:zero={!d.review}>{d.review}</td>
             <td class="w">
               <span class="row-actions">
-                <button class={d.depth === 0 ? '' : 'ghost'} disabled={!total(d)} onclick={() => onStudy(d)}>Lernen</button>
+                <button class={d.depth === 0 ? '' : 'ghost'} disabled={!total(d)} onclick={() => onStudy(d)}>{t('Lernen')}</button>
                 <span class="menu-wrap">
-                  <button class="plain" aria-label="Stapel-Aktionen" onclick={() => (menuFor = menuFor === d.id ? null : d.id)}><Ellipsis size={18} /></button>
+                  <button class="plain" aria-label={t('Stapel-Aktionen')} onclick={() => (menuFor = menuFor === d.id ? null : d.id)}><Ellipsis size={18} /></button>
                   {#if menuFor === d.id}
                     <div class="menu" role="menu">
                       {#if d.filtered}
-                        <button class="plain" onclick={() => { menuFor = null; run(() => api.rebuild_filtered_deck(d.id), (n) => `${n} Karten gesammelt`) }}>Neu aufbauen</button>
-                        <button class="plain" onclick={() => { menuFor = null; run(() => api.empty_filtered_deck(d.id), 'Karten zurück in ihre Stapel') }}>Leeren</button>
+                        <button class="plain" onclick={() => { menuFor = null; run(() => api.rebuild_filtered_deck(d.id), (n) => t('{n} Karten gesammelt', { n })) }}>{t('Neu aufbauen')}</button>
+                        <button class="plain" onclick={() => { menuFor = null; run(() => api.empty_filtered_deck(d.id), t('Karten zurück in ihre Stapel')) }}>{t('Leeren')}</button>
                       {:else}
-                        <button class="plain" onclick={() => onOptions(d)}>Optionen</button>
-                        <button class="plain" onclick={() => { creating = true; newName = d.name + '::'; menuFor = null }}>Unterstapel anlegen</button>
-                        <button class="plain" onclick={() => exportDeck(d)}>Als .apkg exportieren</button>
-                        <button class="plain del" onclick={() => reset(d)} title="Alle Karten (auch in Unterstapeln) werden wieder neu, Lernverlauf bleibt in der Statistik">
-                          {confirmReset === d.id ? 'Wirklich alles zurücksetzen?' : 'Lernstand zurücksetzen'}
+                        <button class="plain" onclick={() => onOptions(d)}>{t('Optionen')}</button>
+                        <button class="plain" onclick={() => { creating = true; newName = d.name + '::'; menuFor = null }}>{t('Unterstapel anlegen')}</button>
+                        <button class="plain" onclick={() => exportDeck(d)}>{t('Als .apkg exportieren')}</button>
+                        <button class="plain del" onclick={() => reset(d)} title={t('Alle Karten (auch in Unterstapeln) werden wieder neu, Lernverlauf bleibt in der Statistik')}>
+                          {confirmReset === d.id ? t('Wirklich alles zurücksetzen?') : t('Lernstand zurücksetzen')}
                         </button>
                       {/if}
-                      <button class="plain" onclick={() => { renaming = d.id; renameText = d.name; menuFor = null }}>Umbenennen</button>
-                      <button class="plain del" onclick={() => remove(d)}>{confirmDelete === d.id ? 'Wirklich löschen?' : 'Löschen'}</button>
+                      <button class="plain" onclick={() => { renaming = d.id; renameText = d.name; menuFor = null }}>{t('Umbenennen')}</button>
+                      <button class="plain del" onclick={() => remove(d)}>{confirmDelete === d.id ? t('Wirklich löschen?') : t('Löschen')}</button>
                     </div>
                   {/if}
                 </span>
@@ -204,36 +205,36 @@
             </td>
           </tr>
         {:else}
-          <tr><td colspan="5" class="empty">Noch keine Stapel. Lege einen an, importiere eine .apkg-Datei, oder bitte Claude, Karten zu erstellen.</td></tr>
+          <tr><td colspan="5" class="empty">{t('Noch keine Stapel. Lege einen an, importiere eine .apkg-Datei, oder bitte Claude, Karten zu erstellen.')}</td></tr>
         {/each}
       </tbody>
     </table>
     <div class="new-deck">
       {#if creating}
         <!-- svelte-ignore a11y_autofocus -->
-        <input bind:value={newName} placeholder="Name, z. B. Analysis II::Integrale" autofocus
+        <input bind:value={newName} placeholder={t('Name, z. B. Analysis II::Integrale')} autofocus
           onkeydown={(e) => e.key === 'Enter' ? create() : e.key === 'Escape' && (creating = false)} onblur={create} />
       {:else if !filtered}
-        <button class="ghost" onclick={() => (creating = true)}>Neuer Stapel</button>
-        <button class="ghost" onclick={() => (filtered = { name: 'Gefilterter Stapel', search: 'is:due', limit: 100, order: 1, resched: true })}>Gefilterter Stapel</button>
+        <button class="ghost" onclick={() => (creating = true)}>{t('Neuer Stapel')}</button>
+        <button class="ghost" onclick={() => (filtered = { name: t('Gefilterter Stapel'), search: 'is:due', limit: 100, order: 1, resched: true })}>{t('Gefilterter Stapel')}</button>
       {/if}
     </div>
     {#if filtered}
       <form class="filtered" onsubmit={(e) => { e.preventDefault(); createFiltered() }}>
-        <h2>Gefilterter Stapel</h2>
-        <p class="muted">Sammelt Karten per Suche vorübergehend in einen eigenen Stapel, z. B. zum Pauken vor der Klausur. Leeren schickt sie zurück.</p>
+        <h2>{t('Gefilterter Stapel')}</h2>
+        <p class="muted">{t('Sammelt Karten per Suche vorübergehend in einen eigenen Stapel, z. B. zum Pauken vor der Klausur. Leeren schickt sie zurück.')}</p>
         <div class="ff">
-          <label>Name<input bind:value={filtered.name} /></label>
-          <label class="wide">Suche (Anki-Syntax)<input bind:value={filtered.search} placeholder={'"deck:Analysis II" is:due'} /></label>
-          <label>Höchstens<input type="number" min="1" bind:value={filtered.limit} /></label>
-          <label>Reihenfolge
+          <label>{t('Name')}<input bind:value={filtered.name} /></label>
+          <label class="wide">{t('Suche (Anki-Syntax)')}<input bind:value={filtered.search} placeholder={'"deck:Analysis II" is:due'} /></label>
+          <label>{t('Höchstens')}<input type="number" min="1" bind:value={filtered.limit} /></label>
+          <label>{t('Reihenfolge')}
             <select bind:value={filtered.order}>{#each ORDERS as [v, l]}<option value={v}>{l}</option>{/each}</select>
           </label>
         </div>
-        <label class="check"><input type="checkbox" bind:checked={filtered.resched} />Antworten planen Karten um (sonst nur Übung)</label>
+        <label class="check"><input type="checkbox" bind:checked={filtered.resched} />{t('Antworten planen Karten um (sonst nur Übung)')}</label>
         <div class="fbar">
-          <button type="button" class="ghost" onclick={() => (filtered = null)}>Abbrechen</button>
-          <button type="submit">Anlegen</button>
+          <button type="button" class="ghost" onclick={() => (filtered = null)}>{t('Abbrechen')}</button>
+          <button type="submit">{t('Anlegen')}</button>
         </div>
       </form>
     {/if}

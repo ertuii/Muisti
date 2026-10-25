@@ -1,5 +1,7 @@
 <script>
   // Vertical (stacked) bar chart in plain SVG with a hover tooltip per column.
+  import { t } from './i18n.js'
+
   let { rows, series, labels, tickEvery = 1, height = 160, tip, legend = series.length > 1 } = $props()
 
   let width = $state(600)
@@ -33,7 +35,7 @@
       {#each series as s}<span><i style:background={s.color}></i>{s.label}</span>{/each}
     </div>
   {/if}
-  <svg {width} {height} role="img" aria-label="Balkendiagramm">
+  <svg {width} {height} role="img" aria-label={t('Balkendiagramm')}>
     <line class="grid" x1={PAD_L} x2={width} y1={plotH - h(max / 2)} y2={plotH - h(max / 2)} />
     <line class="grid" x1={PAD_L} x2={width} y1={plotH - h(max)} y2={plotH - h(max)} />
     <text class="tick" x={PAD_L - 6} y={plotH - h(max) + 4} text-anchor="end">{Math.round(max)}</text>

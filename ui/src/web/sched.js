@@ -84,13 +84,14 @@ export function newOrderFor(gather, deckName = () => '', seed = 0) {
   ][gather] ?? pos
 }
 
-// ---------- interval labels (as Anki's describe_next_states, German) ----------
+// ---------- interval labels (as Anki's describe_next_states) ----------
 
-export function label(secs, learning) {
-  const n = (x) => String(Math.round(x * 10) / 10).replace('.', ',')
-  const s = secs < 60 ? `${Math.round(secs)} Sek.` : secs < 3600 ? `${Math.round(secs / 60)} Min.`
-    : secs < DAY ? `${n(secs / 3600)} Std.` : secs < 30 * DAY ? `${Math.round(secs / DAY)} Tg.`
-      : secs < 365 * DAY ? `${n(secs / DAY / 30)} Mon.` : `${n(secs / DAY / 365)} J.`
+// German by default; core.js passes i18n's t for the UI language
+export function label(secs, learning, tr = (s, { n }) => s.replace('{n}', String(n).replace('.', ','))) {
+  const n = (x) => Math.round(x * 10) / 10
+  const s = secs < 60 ? tr('{n}\u00a0Sek.', { n: Math.round(secs) }) : secs < 3600 ? tr('{n}\u00a0Min.', { n: Math.round(secs / 60) })
+    : secs < DAY ? tr('{n}\u00a0Std.', { n: n(secs / 3600) }) : secs < 30 * DAY ? tr('{n}\u00a0Tg.', { n: Math.round(secs / DAY) })
+      : secs < 365 * DAY ? tr('{n}\u00a0Mon.', { n: n(secs / DAY / 30) }) : tr('{n}\u00a0J.', { n: n(secs / DAY / 365) })
   return learning ? `<${s}` : s
 }
 

@@ -1,6 +1,7 @@
 <script>
   import { X } from '@lucide/svelte'
   import { api } from './api.js'
+  import { t } from './i18n.js'
 
   // Image occlusion in Anki's own format: the Image field holds <img src>, the Occlusion field one cloze per mask,
   // e.g. {{c1::image-occlusion:rect:left=.1:top=.2:width=.3:height=.1:oi=1}} (positions as fractions of the image).
@@ -77,7 +78,7 @@
   }
 
   async function setImage(file) {
-    if (!file?.type.startsWith('image/')) return notify('Das ist kein Bild.', true)
+    if (!file?.type.startsWith('image/')) return notify(t('Das ist kein Bild.'), true)
     const b64 = await new Promise((res) => {
       const r = new FileReader()
       r.onload = () => res(String(r.result).split(',')[1])
@@ -97,20 +98,20 @@
   }
 </script>
 
-<div class="io" onpaste={onPaste} ondrop={onDrop} ondragover={(e) => e.preventDefault()} role="group" aria-label="Bild-Verdeckung">
+<div class="io" onpaste={onPaste} ondrop={onDrop} ondragover={(e) => e.preventDefault()} role="group" aria-label={t('Bild-Verdeckung')}>
   {#if !src}
     <button type="button" class="pick" onclick={() => file.click()}>
-      Bild hier einfügen (<kbd>⌘V</kbd>), hineinziehen oder auswählen
+      {t('Bild hier einfügen')} (<kbd>⌘V</kbd>){t(', hineinziehen oder auswählen')}
     </button>
   {:else}
-    <p class="muted hint">Bereiche aufziehen, die verdeckt werden sollen. Jeder Bereich wird eine Karte. Auswählen und <kbd>⌫</kbd> löscht.</p>
+    <p class="muted hint">{t('Bereiche aufziehen, die verdeckt werden sollen. Jeder Bereich wird eine Karte. Auswählen und')} <kbd>⌫</kbd> {t('löscht.')}</p>
     <div class="stage">
       <img {src} alt="" onload={(e) => { const i = /** @type {HTMLImageElement} */ (e.currentTarget); natural = { w: i.naturalWidth, h: i.naturalHeight } }} />
       <div class="area" bind:this={area} onpointerdown={down} onpointermove={move} onpointerup={up} role="presentation">
         {#each shapes as s}
           {#if s.props.left !== undefined && s.kind !== 'polygon' && s.kind !== 'text'}
             <button type="button" class="mask" class:sel={selected === s} class:round={s.kind === 'ellipse'} style={pct(box(s))}
-              onclick={() => (selected = s)} onkeydown={onKey} aria-label="Bereich {s.n}">
+              onclick={() => (selected = s)} onkeydown={onKey} aria-label={t('Bereich {n}', { n: s.n })}>
               <span>{s.n}</span>
               {#if selected === s}<span class="del" role="presentation" onclick={(e) => { e.stopPropagation(); remove(s) }}><X size={12} /></span>{/if}
             </button>
@@ -120,10 +121,10 @@
       </div>
     </div>
     <div class="row">
-      <label class="check"><input type="checkbox" bind:checked={hideOthers} onchange={commit} /> Beim Abfragen auch die anderen Bereiche verdecken</label>
-      <button type="button" class="ghost again" onclick={() => file.click()}>Anderes Bild</button>
+      <label class="check"><input type="checkbox" bind:checked={hideOthers} onchange={commit} /> {t('Beim Abfragen auch die anderen Bereiche verdecken')}</label>
+      <button type="button" class="ghost again" onclick={() => file.click()}>{t('Anderes Bild')}</button>
     </div>
-    <p class="muted hint">{shapes.length ? `${shapes.length} ${shapes.length === 1 ? 'Bereich' : 'Bereiche'}` : 'Noch kein Bereich'}</p>
+    <p class="muted hint">{shapes.length ? t(shapes.length === 1 ? '{n} Bereich' : '{n} Bereiche', { n: shapes.length }) : t('Noch kein Bereich')}</p>
   {/if}
   <input type="file" accept="image/*" bind:this={file} onchange={(e) => { setImage(e.currentTarget.files?.[0]); e.currentTarget.value = '' }} hidden />
 </div>

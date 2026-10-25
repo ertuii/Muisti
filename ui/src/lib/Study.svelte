@@ -3,6 +3,7 @@
   import { api } from './api.js'
   import Editor from './Editor.svelte'
   import CardFrame from './CardFrame.svelte'
+  import { t, tmsg } from './i18n.js'
 
   // temporary: a pre-learn/practice deck, removed again when the session ends
   // plan: the study plan across all decks (nearest exam first) for `minutes`
@@ -67,9 +68,9 @@
     const st = card.study
     // ponytail: wait_for_audio is ignored, the timer starts when the card is shown
     if (!revealed && st.seconds_question > 0) {
-      advanceTimer = setTimeout(() => (st.question_action === 0 ? reveal() : notify('Zeit, die Antwort aufzudecken')), st.seconds_question * 1000)
+      advanceTimer = setTimeout(() => (st.question_action === 0 ? reveal() : notify(t('Zeit, die Antwort aufzudecken'))), st.seconds_question * 1000)
     } else if (revealed && st.seconds_answer > 0) {
-      const act = [() => bury(), () => answer(1), () => answer(3), () => answer(2), () => notify('Zeit, die Karte zu bewerten')][st.answer_action]
+      const act = [() => bury(), () => answer(1), () => answer(3), () => answer(2), () => notify(t('Zeit, die Karte zu bewerten'))][st.answer_action]
       advanceTimer = setTimeout(act, st.seconds_answer * 1000)
     }
   })
@@ -81,10 +82,10 @@
   }
 
   const BUTTONS = [
-    { ease: 1, label: 'Nochmal', cls: 'again' },
-    { ease: 2, label: 'Schwer', cls: 'hard' },
-    { ease: 3, label: 'Gut', cls: 'good' },
-    { ease: 4, label: 'Einfach', cls: 'easy' },
+    { ease: 1, label: t('Nochmal'), cls: 'again' },
+    { ease: 2, label: t('Schwer'), cls: 'hard' },
+    { ease: 3, label: t('Gut'), cls: 'good' },
+    { ease: 4, label: t('Einfach'), cls: 'easy' },
   ]
 
   async function next() {
@@ -111,7 +112,7 @@
       boxCount++
       answered++
       if (prefs.time_limit_secs && Date.now() - boxStart >= prefs.time_limit_secs * 1000) {
-        notify(`Zeitlimit erreicht: ${boxCount} Karten in ${Math.round((Date.now() - boxStart) / 60000)} Minuten`)
+        notify(t('Zeitlimit erreicht: {n} Karten in {m} Minuten', { n: boxCount, m: Math.round((Date.now() - boxStart) / 60000) }))
         boxStart = Date.now()
         boxCount = 0
       }
@@ -125,20 +126,20 @@
 
   async function undo() {
     const name = await api.undo()
-    notify(name ? `Rückgängig: ${name}` : 'Nichts rückgängig zu machen')
+    notify(name ? t('Rückgängig: {name}', { name: tmsg(name) }) : t('Nichts rückgängig zu machen'))
     await next()
   }
 
   async function bury() {
     await api.bury_card(card.card_id)
-    notify('Karte bis morgen zurückgestellt')
+    notify(t('Karte bis morgen zurückgestellt'))
     await next()
   }
 
   // Anki: @ suspends the card, ! the whole note (all its cards)
   async function suspend(note = false) {
     await (note ? api.suspend_note(card.note_id) : api.suspend([card.card_id]))
-    notify(note ? 'Notiz ausgesetzt (im Browser wieder aktivierbar)' : 'Karte ausgesetzt (im Browser wieder aktivierbar)')
+    notify(note ? t('Notiz ausgesetzt (im Browser wieder aktivierbar)') : t('Karte ausgesetzt (im Browser wieder aktivierbar)'))
     await next()
   }
 
@@ -158,9 +159,9 @@
   }
 
   function toggleAuto() {
-    if (!card.study.seconds_question && !card.study.seconds_answer) return notify('„Automatisch weiter“ ist in den Stapel-Optionen nicht eingestellt')
+    if (!card.study.seconds_question && !card.study.seconds_answer) return notify(t('„Automatisch weiter“ ist in den Stapel-Optionen nicht eingestellt'))
     autoAdvance = !autoAdvance
-    notify(autoAdvance ? 'Automatisch weiter: an' : 'Automatisch weiter: aus')
+    notify(autoAdvance ? t('Automatisch weiter: an') : t('Automatisch weiter: aus'))
   }
 
   next()
@@ -170,26 +171,26 @@
 
 <div class="study">
   <header>
-    <button class="plain" onclick={exit}><ArrowLeft size={17} />{deckName}{plan && card ? ` · ${card.deck}` : ''} <kbd>Esc</kbd></button>
+    <button class="plain" onclick={exit}><ArrowLeft size={17} />{tmsg(deckName)}{plan && card ? ` · ${card.deck}` : ''} <kbd>Esc</kbd></button>
     {#if card}
       <div class="mid">
         {#if prefs.show_remaining_due_counts}
-          <div class="counts num" aria-label="Verbleibend">
+          <div class="counts num" aria-label={t('Verbleibend')}>
             <span class="c-new" class:cur={card.queue === 0}>{card.counts.new}</span>
             <span class="c-learn" class:cur={card.queue === 1 || card.queue === 3}>{card.counts.learn}</span>
             <span class="c-review" class:cur={card.queue === 2}>{card.counts.review}</span>
           </div>
         {/if}
-        {#if plan && minutes}<span class="timer num">noch {left} min</span>{/if}
+        {#if plan && minutes}<span class="timer num">{t('noch {n} min', { n: left })}</span>{/if}
         {#if card.study.show_timer}<span class="timer num" class:capped={elapsed >= card.study.cap_secs}>{clock(elapsed)}</span>{/if}
       </div>
       <div class="tools">
         {#if card.study.seconds_question || card.study.seconds_answer}
-          <button class="plain" class:active={autoAdvance} onclick={toggleAuto} title="Automatisch weiter (A)"><FastForward size={17} /></button>
+          <button class="plain" class:active={autoAdvance} onclick={toggleAuto} title={t('Automatisch weiter (A)')}><FastForward size={17} /></button>
         {/if}
-        <button class="plain" onclick={() => suspend()} title="Karte aussetzen (@), ganze Notiz: !"><Pause size={17} /></button>
-        <button class="plain" onclick={undo} title="Rückgängig (⌘Z)"><Undo2 size={17} /></button>
-        <button class="plain" onclick={() => (editing = true)} title="Bearbeiten (E)"><Pencil size={17} /></button>
+        <button class="plain" onclick={() => suspend()} title={t('Karte aussetzen (@), ganze Notiz: !')}><Pause size={17} /></button>
+        <button class="plain" onclick={undo} title={t('Rückgängig (⌘Z)')}><Undo2 size={17} /></button>
+        <button class="plain" onclick={() => (editing = true)} title={t('Bearbeiten (E)')}><Pencil size={17} /></button>
       </div>
     {/if}
   </header>
@@ -197,15 +198,15 @@
   {#if done}
     <div class="done">
       {#if plan}
-        <h1>{timeUp ? 'Lernplan geschafft.' : 'Alles erledigt.'}</h1>
-        <p class="muted">{answered} {answered === 1 ? 'Karte' : 'Karten'} in {Math.max(1, Math.round((Date.now() - sessionStart) / 60000))} Minuten. {timeUp ? 'Was noch fällig ist, kannst du später oder morgen lernen.' : 'In keinem Stapel ist gerade noch etwas fällig.'}</p>
+        <h1>{timeUp ? t('Lernplan geschafft.') : t('Alles erledigt.')}</h1>
+        <p class="muted">{t(answered === 1 ? '{n} Karte in {m} Minuten.' : '{n} Karten in {m} Minuten.', { n: answered, m: Math.max(1, Math.round((Date.now() - sessionStart) / 60000)) })} {timeUp ? t('Was noch fällig ist, kannst du später oder morgen lernen.') : t('In keinem Stapel ist gerade noch etwas fällig.')}</p>
       {:else}
-        <h1>{temporary ? 'Geschafft.' : 'Fertig für heute.'}</h1>
-        <p class="muted">{temporary ? 'Die Karten sind neu eingeplant. Lernkarten, die noch offen sind, kehren in ihre Stapel zurück.' : `In „${deckName}“ ist gerade nichts mehr fällig. Lernkarten kommen nach ihrer Lernstufe zurück.`}</p>
+        <h1>{temporary ? t('Geschafft.') : t('Fertig für heute.')}</h1>
+        <p class="muted">{temporary ? t('Die Karten sind neu eingeplant. Lernkarten, die noch offen sind, kehren in ihre Stapel zurück.') : t('In „{name}“ ist gerade nichts mehr fällig. Lernkarten kommen nach ihrer Lernstufe zurück.', { name: deckName })}</p>
       {/if}
       <div class="row">
-        <button onclick={exit}>Zur Übersicht</button>
-        <button class="ghost" onclick={undo}>Letzte Antwort rückgängig</button>
+        <button onclick={exit}>{t('Zur Übersicht')}</button>
+        <button class="ghost" onclick={undo}>{t('Letzte Antwort rückgängig')}</button>
       </div>
     </div>
   {:else if card}
@@ -215,7 +216,7 @@
     </div>
     <footer>
       {#if !revealed}
-        <button class="reveal" onclick={reveal}>Antwort zeigen <kbd class="inv">Leertaste</kbd></button>
+        <button class="reveal" onclick={reveal}>{t('Antwort zeigen')} <kbd class="inv">{t('Leertaste')}</kbd></button>
       {:else}
         <div class="answers">
           {#each BUTTONS as b, i}
@@ -233,8 +234,8 @@
 
 {#if editing && card}
   <div class="sheet-backdrop" onclick={(e) => e.target === e.currentTarget && (editing = false)} role="presentation">
-    <div class="sheet" role="dialog" aria-label="Karte bearbeiten">
-      <h2>Notiz bearbeiten</h2>
+    <div class="sheet" role="dialog" aria-label={t('Karte bearbeiten')}>
+      <h2>{t('Notiz bearbeiten')}</h2>
       <Editor noteId={card.note_id} {flat} {notify} onSaved={async () => { editing = false; await show(await fetchCard()) }} onCancel={() => (editing = false)} />
     </div>
   </div>

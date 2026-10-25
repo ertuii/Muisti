@@ -19,10 +19,12 @@ from anki.collection import (
     ImportAnkiPackageRequest,
     ImportCsvRequest,
 )
-from anki.lang import set_lang
+import anki.lang
 from anki.sound import SoundOrVideoTag, TTSTag
 
-set_lang("de_DE")  # interval labels, undo names, import messages in German
+# UI language (Settings) -> Anki's own strings: interval labels, undo names, import messages, stats
+_ANKI_LANGS = {"de": "de_DE", "en": "en_US", "es": "es_ES"}
+anki.lang.set_lang("de_DE")
 
 
 def data_dir() -> Path:
@@ -101,6 +103,7 @@ _SPEAKER = ('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke=
 class Core:
     def __init__(self, path: str | None = None):
         self._col = Collection(path or collection_path())
+        self._apply_language()
         self._lock = threading.RLock()  # ponytail: one lock for everything, the collection is single-user anyway
         self._window = None  # set by app.py for file dialogs
         self._current = None  # (card, states) of the card being studied
@@ -750,6 +753,28 @@ class Core:
         if theme not in ("system", "light", "dark"):
             raise ValueError(theme)
         self._col.set_config("betteranki.theme", theme)
+
+    @_locked
+    def language(self) -> str | None:
+        return self._col.get_config("betteranki.lang", None)
+
+    @_locked
+    def set_language(self, lang: str) -> None:
+        if lang not in _ANKI_LANGS:
+            raise ValueError(lang)
+        self._col.set_config("betteranki.lang", lang)
+        self._apply_language()
+
+    def _apply_language(self):
+        # Anki fixes its language when a collection is opened: reopen if it changed
+        # ponytail: set_lang is process-wide but only read on open, so each web worker collection keeps its own
+        want = _ANKI_LANGS.get(self._col.get_config("betteranki.lang", "de"), "de_DE")
+        if want != anki.lang.current_lang:
+            anki.lang.set_lang(want)
+            path = self._col.path
+            self._col.close()
+            self._col = Collection(path)
+            self._current = None
 
     @_locked
     def save_features(self, features: dict) -> None:

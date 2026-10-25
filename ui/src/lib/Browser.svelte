@@ -3,6 +3,7 @@
   import { Search, Flag, X } from '@lucide/svelte'
   import { api } from './api.js'
   import Editor from './Editor.svelte'
+  import { t, tmsg } from './i18n.js'
 
   let { flat, run, notify } = $props()
 
@@ -32,7 +33,7 @@
     { n: 5, label: 'Pink', color: 'var(--m-pink)' },
     { n: 6, label: 'Türkis', color: 'var(--m-teal)' },
     { n: 7, label: 'Violett', color: 'var(--m-violet)' },
-  ]
+  ].map((f) => ({ ...f, label: t(f.label) }))
 
   const STATUS = [
     { q: '', label: 'Alle Karten' },
@@ -43,7 +44,7 @@
     { q: 'is:suspended', label: 'Ausgesetzt' },
     { q: '-flag:0', label: 'Markiert' },
     { q: 'rated:1', label: 'Heute gelernt' },
-  ]
+  ].map((s) => ({ ...s, label: t(s.label) }))
 
   const ids = $derived([...selected])
   const allSuspended = $derived(rows.filter((r) => selected.has(r.card_id)).every((r) => r.suspended))
@@ -68,7 +69,7 @@
       selected = new Set([...selected].filter((id) => rows.some((r) => r.card_id === id)))
       if (active && !rows.some((r) => r.card_id === active.card_id)) active = null
     } catch (e) {
-      notify(`Suche fehlgeschlagen: ${e?.message ?? e}`, true)
+      notify(t('Suche fehlgeschlagen: {why}', { why: tmsg(e?.message ?? e) }), true)
     } finally {
       loading = false
     }
@@ -102,7 +103,7 @@
   async function forget() {
     if (!confirmReset) return (confirmReset = true)
     confirmReset = false
-    await bulk(() => api.forget_cards(ids), (n) => `${n} ${n === 1 ? 'Karte' : 'Karten'} zurückgesetzt`)
+    await bulk(() => api.forget_cards(ids), (n) => t(n === 1 ? '{n} Karte zurückgesetzt' : '{n} Karten zurückgesetzt', { n }))
   }
 
   function onKey(e) {
@@ -119,11 +120,11 @@
     const noteIds = [...new Set(rows.filter((r) => selected.has(r.card_id)).map((r) => r.note_id))]
     selected = new Set()
     active = null
-    await bulk(() => api.delete_notes(noteIds), (n) => `${n} Notizen gelöscht`)
+    await bulk(() => api.delete_notes(noteIds), (n) => t('{n} Notizen gelöscht', { n }))
   }
 
   const flagColor = (n) => FLAGS[n]?.color
-  const ivl = (r) => (r.due != null ? 'neu' : r.interval ? `${r.interval} T` : 'lernt')
+  const ivl = (r) => (r.due != null ? t('neu') : r.interval ? t('{n} T', { n: r.interval }) : t('lernt'))
 
   // Re-run whenever a filter select changes (the text field is debounced separately).
   $effect(() => {
@@ -139,52 +140,52 @@
     <form class="filters" onsubmit={(e) => { e.preventDefault(); search() }}>
       <label class="search">
         <Search size={16} />
-        <input bind:value={query} oninput={searchSoon} placeholder="Suchen … (Anki-Syntax, z. B. tag:formel)" aria-label="Karten suchen" />
+        <input bind:value={query} oninput={searchSoon} placeholder={t('Suchen … (Anki-Syntax, z. B. tag:formel)')} aria-label={t('Karten suchen')} />
       </label>
-      <select bind:value={deckFilter} aria-label="Nach Stapel filtern">
-        <option value="">Alle Stapel</option>
+      <select bind:value={deckFilter} aria-label={t('Nach Stapel filtern')}>
+        <option value="">{t('Alle Stapel')}</option>
         {#each flat as d}<option value={d.name}>{'\u2003'.repeat(d.depth)}{d.short}</option>{/each}
       </select>
-      <select bind:value={status} aria-label="Nach Status filtern">
+      <select bind:value={status} aria-label={t('Nach Status filtern')}>
         {#each STATUS as s}<option value={s.q}>{s.label}</option>{/each}
       </select>
-      <span class="count muted num">{rows.length} {rows.length === 1 ? 'Karte' : 'Karten'}</span>
+      <span class="count muted num">{t(rows.length === 1 ? '{n} Karte' : '{n} Karten', { n: rows.length })}</span>
     </form>
 
     <div class="selection" class:on={selected.size}>
       {#if selected.size}
-        <span class="num sel-count">{selected.size} ausgewählt</span>
-        <button class="ghost sm" onclick={() => bulk(() => api.suspend(ids, !allSuspended), allSuspended ? 'Fortgesetzt' : 'Ausgesetzt')}>
-          {allSuspended ? 'Fortsetzen' : 'Aussetzen'}
+        <span class="num sel-count">{t('{n} ausgewählt', { n: selected.size })}</span>
+        <button class="ghost sm" onclick={() => bulk(() => api.suspend(ids, !allSuspended), allSuspended ? t('Fortgesetzt') : t('Ausgesetzt'))}>
+          {allSuspended ? t('Fortsetzen') : t('Aussetzen')}
         </button>
-        <select class="sm" aria-label="Markierung setzen" onchange={(e) => { bulk(() => api.flag(ids, Number(e.currentTarget.value)), 'Markiert'); e.currentTarget.value = '' }}>
-          <option value="">Markieren</option>
+        <select class="sm" aria-label={t('Markierung setzen')} onchange={(e) => { bulk(() => api.flag(ids, Number(e.currentTarget.value)), t('Markiert')); e.currentTarget.value = '' }}>
+          <option value="">{t('Markieren')}</option>
           {#each FLAGS as f}<option value={f.n}>{f.label}</option>{/each}
         </select>
-        <select class="sm" aria-label="In Stapel verschieben" onchange={(e) => { bulk(() => api.move_cards(ids, Number(e.currentTarget.value)), 'Verschoben'); e.currentTarget.value = '' }}>
-          <option value="">Verschieben nach</option>
+        <select class="sm" aria-label={t('In Stapel verschieben')} onchange={(e) => { bulk(() => api.move_cards(ids, Number(e.currentTarget.value)), t('Verschoben')); e.currentTarget.value = '' }}>
+          <option value="">{t('Verschieben nach')}</option>
           {#each flat as d}<option value={d.id}>{'\u2003'.repeat(d.depth)}{d.short}</option>{/each}
         </select>
-        <button class="ghost sm" onclick={forget} onblur={() => (confirmReset = false)} title="Karten wieder als neu einplanen (Anki: Vergessen)">{confirmReset ? 'Wirklich zurücksetzen?' : 'Zurücksetzen'}</button>
-        <button class="danger sm" onclick={remove} onblur={() => (confirmDelete = false)}>{confirmDelete ? 'Wirklich löschen?' : 'Löschen'}</button>
-        <button class="plain sm clear" aria-label="Auswahl aufheben" onclick={() => { selected = new Set(); active = null }}><X size={16} /></button>
+        <button class="ghost sm" onclick={forget} onblur={() => (confirmReset = false)} title={t('Karten wieder als neu einplanen (Anki: Vergessen)')}>{confirmReset ? t('Wirklich zurücksetzen?') : t('Zurücksetzen')}</button>
+        <button class="danger sm" onclick={remove} onblur={() => (confirmDelete = false)}>{confirmDelete ? t('Wirklich löschen?') : t('Löschen')}</button>
+        <button class="plain sm clear" aria-label={t('Auswahl aufheben')} onclick={() => { selected = new Set(); active = null }}><X size={16} /></button>
       {:else}
-        <span class="muted hint">Klick wählt eine Karte, <kbd>⌘</kbd>-Klick mehrere, <kbd>⌘A</kbd> alle.</span>
+        <span class="muted hint">{t('Klick wählt eine Karte,')} <kbd>⌘</kbd>{t('-Klick mehrere,')} <kbd>⌘A</kbd> {t('alle.')}</span>
       {/if}
     </div>
 
     <div class="table-wrap" class:loading>
       <table>
         <thead>
-          <tr><th class="cb"><input type="checkbox" checked={allSelected} indeterminate={selected.size > 0 && !allSelected} onclick={toggleAll} aria-label="Alle auswählen" /></th><th>Sortierfeld</th><th class="c-deck">Stapel</th><th class="opt">Notiztyp</th><th class="opt">Tags</th><th class="r c-ivl">Intervall</th><th class="r c-reps opt">Wdh.</th></tr>
+          <tr><th class="cb"><input type="checkbox" checked={allSelected} indeterminate={selected.size > 0 && !allSelected} onclick={toggleAll} aria-label={t('Alle auswählen')} /></th><th>{t('Sortierfeld')}</th><th class="c-deck">{t('Stapel')}</th><th class="opt">{t('Notiztyp')}</th><th class="opt">{t('Tags')}</th><th class="r c-ivl">{t('Intervall')}</th><th class="r c-reps opt">{t('Wdh.')}</th></tr>
         </thead>
         <tbody>
           {#each rows as r (r.card_id)}
             <tr class:sel={selected.has(r.card_id)} class:susp={r.suspended} onclick={(e) => pick(r, e)}>
-              <td class="cb"><input type="checkbox" checked={selected.has(r.card_id)} onclick={(e) => { e.stopPropagation(); toggle(r) }} aria-label="Auswählen" /></td>
+              <td class="cb"><input type="checkbox" checked={selected.has(r.card_id)} onclick={(e) => { e.stopPropagation(); toggle(r) }} aria-label={t('Auswählen')} /></td>
               <td class="sort">
                 {#if r.flag}<Flag size={13} fill={flagColor(r.flag)} color={flagColor(r.flag)} />{/if}
-                {r.sort || '(leer)'}
+                {r.sort || t('(leer)')}
               </td>
               <td class="muted">{r.deck}</td>
               <td class="muted opt">{r.notetype}</td>
@@ -193,7 +194,7 @@
               <td class="num r opt">{r.reps}</td>
             </tr>
           {:else}
-            <tr><td colspan="7" class="empty">{loading ? 'Suche …' : fullQuery ? 'Keine Karten für diese Filter.' : 'Die Sammlung ist leer.'}</td></tr>
+            <tr><td colspan="7" class="empty">{loading ? t('Suche …') : fullQuery ? t('Keine Karten für diese Filter.') : t('Die Sammlung ist leer.')}</td></tr>
           {/each}
         </tbody>
       </table>
