@@ -2,7 +2,7 @@
 // (default preset, values read from describe_next_states in a fresh collection).
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { limits, label, outcomes, queue, timing, revlogFor } from './sched.js'
+import { limits, label, outcomes, queue, newOrderFor, timing, revlogFor } from './sched.js'
 import stock from './stock.json' with { type: 'json' }
 
 const conf = stock.deck_configs[0]
@@ -68,6 +68,17 @@ test('queue: the limit of a parent deck caps its subdecks together', () => {
   const cards = [1, 2, 3, 4, 5, 6].map((id) => ({ ...newCard, id, due: id, did: id <= 3 ? 10 : 11 }))
   const q = queue(cards, (c) => [c.did === 10 ? a : b, parent], t)
   assert.deepEqual(q.cards.map((c) => c.id), [1, 2, 4]) // a's own limit 2, then the parent's 3 in total
+})
+
+test('queue: random notes mix the subdecks, deck order takes them one after the other', () => {
+  const cards = [1, 2, 3, 4, 5, 6].map((id) => ({ ...newCard, id, nid: id, due: id, did: id <= 3 ? 10 : 11 }))
+  const first3 = (order) => {
+    const lim = { new: 3, review: 9 }
+    return new Set(queue(cards, () => [lim], t, 1200, order).cards.map((c) => c.did))
+  }
+  const name = (did) => (did === 10 ? 'Bio::A' : 'Bio::B')
+  assert.deepEqual(first3(newOrderFor(0, name)), new Set([10]))
+  assert.equal(first3(newOrderFor(4, name, t.today)).size, 2)
 })
 
 test('limits count what was done today', () => {

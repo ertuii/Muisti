@@ -21,6 +21,7 @@ jobs:
         run: uv run python -c "import muisti, sys; sys.exit(0 if 'v' + muisti.__version__ == '${{ github.ref_name }}' else 'Tag passt nicht zu __version__')"
       - run: uv run python tests/test_core.py
       - run: uv run python tests/test_phase2.py
+      - run: uv run python tests/test_deck_limits.py
       - run: uv run python tests/test_phase3.py
       - run: uv run python tests/test_phase4.py
       - run: uv run python tests/test_phase5.py

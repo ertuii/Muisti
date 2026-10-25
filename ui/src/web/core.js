@@ -4,7 +4,7 @@
 // worker (web-api/worker.py), which runs core.py itself: api.js sends every method this file lacks there.
 import { S, write, pull, flush, sb, mediaUrls, uploadMedia, unsynced, userId } from './db.js'
 import { renderCard, stripHtml, clozeNumbers, clozeTexts, compareAnswer } from './render.js'
-import { timing, limits, queue, outcomes, label, revlogFor, isLeech } from './sched.js'
+import { timing, limits, queue, newOrderFor, outcomes, label, revlogFor, isLeech } from './sched.js'
 import { search as runSearch } from './search.js'
 
 const INBOX_TAG = 'Claude-Eingang'
@@ -42,23 +42,37 @@ function cardsIn(ids) {
   return [...S.cards.values()].filter((c) => ids.has(c.did))
 }
 
-/** For queue(): the remaining limits of a card's deck and all its parents (filtered decks have none). */
-function limitsFor(tm) {
+/** A deck and its parents, nearest first. */
+function chainOf(d) {
   const byName = new Map([...S.decks.values()].map((r) => [r.data.name, r.data]))
+  const parts = d.name.split('::')
+  return parts.map((_, i) => byName.get(parts.slice(0, parts.length - i).join('::'))).filter(Boolean)
+}
+
+/**
+ * For queue(): the remaining limits of a card's deck and its parents up to the studied deck (filtered decks
+ * have none); the parents above it too if "apply all parent limits" is on, like Anki's v3.
+ */
+function limitsFor(tm, rootId) {
   const left = new Map()
   const of = (d) => {
     if (!left.has(d.id)) left.set(d.id, limits(d, confOf(d), tm.today))
     return left.get(d.id)
   }
+  const depth = (d) => d.name.split('::').length
+  const top = cfg('applyAllParentLimits', false) ? 1 : depth(deckOf(rootId))
   return (c) => {
     const d = deckOf(c.did)
     if (!d || d.dyn) return []
-    const parts = d.name.split('::')
-    return parts.map((_, i) => byName.get(parts.slice(0, parts.length - i).join('::'))).filter(Boolean).map(of)
+    return chainOf(d).filter((p) => depth(p) >= top).map(of)
   }
 }
 
-const studyQueue = (deck_id, tm) => queue(cardsIn(subtree(deck_id)), limitsFor(tm), tm, cfg('collapseTime', 1200))
+function studyQueue(deck_id, tm) {
+  const name = (did) => deckOf(did)?.name ?? ''
+  const order = newOrderFor(confOf(deckOf(deck_id)).newGatherPriority ?? 0, name, tm.today)
+  return queue(cardsIn(subtree(deck_id)), limitsFor(tm, deck_id), tm, cfg('collapseTime', 1200), order)
+}
 const countsFor = (id, tm) => studyQueue(id, tm).counts
 
 export function decks() {
@@ -210,15 +224,17 @@ export function answer(card_id, ease) {
   }
   const tm = t()
   const field = before.type === 0 ? 'newToday' : before.queue === 2 || before.queue === 3 ? 'revToday' : null
-  const deckBefore = structuredClone(deck)
-  if (field) {
-    const [day, n] = deck[field] ?? [tm.today, 0]
-    saveDeck({ ...deck, [field]: [tm.today, (day === tm.today ? n : 0) + 1] })
+  // Anki counts the answer against the card's deck and all its parents
+  const chain = chainOf(deck)
+  const decksBefore = structuredClone(chain)
+  if (field) for (const d of chain) {
+    const [day, n] = d[field] ?? [tm.today, 0]
+    saveDeck({ ...d, [field]: [tm.today, (day === tm.today ? n : 0) + 1] })
   }
   // Anki's "bury siblings": the note's other cards wait until tomorrow, as the preset says
   const siblings = cardsOf(before.nid).filter((c) => c.id !== before.id && (
     (c.queue === 0 && conf.new.bury) || (c.queue === 2 && conf.rev.bury) || (c.queue === 3 && conf.buryInterdayLearning)))
-  undoStack = [...undoStack.slice(-19), { card: before, deck: deckBefore, log, note: noteAfter && note, siblings }]
+  undoStack = [...undoStack.slice(-19), { card: before, decks: decksBefore, log, note: noteAfter && note, siblings }]
   saveCards([card, ...siblings.map((c) => ({ ...c, queue: -2 }))])
   write('revlog', [log])
   if (noteAfter) write('notes', [noteAfter])
@@ -228,9 +244,9 @@ export function answer(card_id, ease) {
 export function undo() {
   const last = undoStack.pop()
   if (!last) return null
-  const { card, deck, log, note, siblings } = last
+  const { card, decks: before, log, note, siblings } = last
   saveCards([card, ...siblings])
-  saveDeck(deck)
+  before.forEach(saveDeck)
   write('revlog', [{ ...log, mod: 1, deleted: true }])
   if (note) write('notes', [{ ...note, mod: now() }])
   return 'Antwort'

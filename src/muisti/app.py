@@ -40,6 +40,7 @@ def _bind(window):
 
 def run():
     core = Core()
+    core.mix_subdecks_by_default()
     url = server.start(core) + ("?mac" if sys.platform == "darwin" else "")  # the UI leaves room for the window buttons
     core._window = webview.create_window("Muisti", url, js_api=core, width=1200, height=820, min_size=(720, 540))
     try:

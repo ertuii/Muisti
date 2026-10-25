@@ -180,6 +180,7 @@ class Core:
             "days_since_optimize": info.days_since_last_fsrs_optimize,
             # deck-only overrides; None = use the preset
             "limits": {k: (getattr(lim, k) if lim.HasField(k) else None) for k in self._LIMITS},
+            "subdecks": len(self._col.decks.deck_and_child_ids(deck_id)) - 1,
             "new_cards_ignore_review_limit": info.new_cards_ignore_review_limit,
             "apply_all_parent_limits": info.apply_all_parent_limits,
         }
@@ -227,6 +228,28 @@ class Core:
         self._save_configs(deck_id, info, cfg, bool(options.get("fsrs", info.fsrs)), limits,
                            {k: options[k] for k in ("new_cards_ignore_review_limit", "apply_all_parent_limits") if k in options},
                            bool(options.get("fsrs_reschedule")))
+        if limits is not None and options.get("limits_to_subdecks"):  # the deck's own limits for its subdecks too
+            for did in self._col.decks.deck_and_child_ids(deck_id)[1:]:
+                d = self._col.decks.get(did)
+                if d["dyn"]:
+                    continue
+                d["newLimit"] = limits.new if limits.HasField("new") else None
+                d["reviewLimit"] = limits.review if limits.HasField("review") else None
+                self._col.decks.save(d)
+
+    _MIXED = "muisti.mixedSubdecks"
+
+    @_locked
+    def mix_subdecks_by_default(self) -> None:
+        """Once per collection: presets on Anki's default "gather new cards by deck" (one subdeck after the other)
+        switch to random notes, so studying a parent deck mixes its subdecks. Deck options can switch it back."""
+        if self._col.get_config(self._MIXED, False):
+            return
+        for c in self._col.decks.all_config():
+            if c.get("newGatherPriority", 0) == 0:
+                c["newGatherPriority"] = 4
+                self._col.decks.update_config(c)
+        self._col.set_config(self._MIXED, True)
 
     # ---------- global preferences ----------
 

@@ -1,7 +1,8 @@
 // Anki's scheduler for the web app: days since collection creation, study queue, FSRS (ts-fsrs) and SM-2.
 // Pure functions over plain rows (cards, deck dicts, preset dicts), so they run in tests without a browser.
 // ponytail: v3's order simplified (learning due now, then reviews, then new; no new/review mixing options,
-// no load balancing or easy days). Limits apply per deck and all its parents, like v3.
+// no load balancing or easy days). Limits apply per deck and its parents, like v3. New cards follow the
+// preset's gather priority (newOrder), their sort order is not modelled.
 import { fsrs, Rating, State, StrategyMode, ConvertStepUnitToMinutes } from 'ts-fsrs'
 
 const DAY = 86400
@@ -33,8 +34,9 @@ export function limits(deck, conf, today) {
  * The cards to study in a deck tree, in order, plus the counts shown on the study screen.
  * limitsOf(card): the remaining-limit objects ({new, review}) of the card's deck and all its parents; a card is
  * taken only while every one of them has room, and counts against all of them (Anki's v3 rule).
+ * newOrder: comparator for new cards (see newOrderFor() below).
  */
-export function queue(cards, limitsOf, t, learnAhead = 1200) {
+export function queue(cards, limitsOf, t, learnAhead = 1200, newOrder = newOrderFor(2)) {
   const lrnNow = [], lrnLater = [], rev = [], fresh = []
   for (const c of cards) {
     if (c.queue === 1) (c.due <= t.now ? lrnNow : c.due <= t.now + learnAhead ? lrnLater : null)?.push(c)
@@ -44,7 +46,7 @@ export function queue(cards, limitsOf, t, learnAhead = 1200) {
   lrnNow.sort((a, b) => a.due - b.due)
   lrnLater.sort((a, b) => a.due - b.due)
   rev.sort((a, b) => a.due - b.due || a.id - b.id)
-  fresh.sort((a, b) => a.due - b.due || a.id - b.id)
+  fresh.sort(newOrder)
   const take = (list, kind) => list.filter((c) => {
     const chain = limitsOf(c)
     if (!chain.every((l) => l[kind] > 0)) return false
@@ -56,6 +58,30 @@ export function queue(cards, limitsOf, t, learnAhead = 1200) {
     cards: [...lrnNow, ...reviews, ...news, ...lrnLater],
     counts: { new: news.length, learn: lrnNow.length + lrnLater.length, review: reviews.length },
   }
+}
+
+const rnd = (x, seed) => { const v = Math.sin(x * 12.9898 + seed * 78.233) * 43758.5453; return v - Math.floor(v) }
+
+/**
+ * Anki's "gather new cards" priority as a comparator: 0 deck, 1 deck then random notes, 2 ascending position,
+ * 3 descending position, 4 random notes, 5 random cards. Random is stable for a day (seed), so the queue
+ * doesn't reshuffle after every answer. deckName(did) orders decks for 0 and 1.
+ * @param {number} gather
+ * @param {(did: number) => string} [deckName]
+ * @param {number} [seed]
+ */
+export function newOrderFor(gather, deckName = () => '', seed = 0) {
+  const pos = (a, b) => a.due - b.due || a.id - b.id
+  const deck = (a, b) => deckName(a.did).localeCompare(deckName(b.did), 'de')
+  const notes = (a, b) => rnd(a.nid, seed) - rnd(b.nid, seed) || a.nid - b.nid || a.ord - b.ord
+  return [
+    (a, b) => deck(a, b) || pos(a, b),
+    (a, b) => deck(a, b) || notes(a, b),
+    pos,
+    (a, b) => -pos(a, b),
+    notes,
+    (a, b) => rnd(a.id, seed) - rnd(b.id, seed) || a.id - b.id,
+  ][gather] ?? pos
 }
 
 // ---------- interval labels (as Anki's describe_next_states, German) ----------

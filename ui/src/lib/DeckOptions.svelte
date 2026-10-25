@@ -10,6 +10,7 @@
   let optimizing = $state(false)
   let newPreset = $state(null)
   let reschedule = $state(false)
+  let toSubdecks = $state(false)
 
   // Anki stores steps in minutes; show them as "1m 10m 1d".
   const fmtSteps = (xs) => xs.map((m) => (m >= 1440 && m % 1440 === 0 ? `${m / 1440}d` : m >= 60 && m % 60 === 0 ? `${m / 60}h` : `${m}m`)).join(' ')
@@ -42,7 +43,8 @@
     ] },
     { title: 'Anzeigereihenfolge', fields: [
       { k: 'new_card_gather_priority', label: 'Neue Karten sammeln', kind: 'enum',
-        opts: ['Stapel', 'Stapel, dann zufällige Notizen', 'Aufsteigende Position', 'Absteigende Position', 'Zufällige Notizen', 'Zufällige Karten'] },
+        opts: ['Stapel für Stapel', 'Stapel für Stapel, darin zufällige Notizen', 'Aufsteigende Position', 'Absteigende Position', 'Zufällige Notizen (Unterstapel gemischt)', 'Zufällige Karten (Unterstapel gemischt)'],
+        help: 'Beim Lernen eines Oberstapels: Unterstapel mischen oder nacheinander abarbeiten.' },
       { k: 'new_card_sort_order', label: 'Neue Karten sortieren', kind: 'enum',
         opts: ['Kartentyp, dann Sammelreihenfolge', 'Sammelreihenfolge', 'Kartentyp, dann zufällig', 'Zufällige Notiz, dann Kartentyp', 'Zufällig'] },
       { k: 'new_mix', label: 'Neue Karten / Wiederholungen', kind: 'enum', opts: ['Gemischt', 'Neue nach Wiederholungen', 'Neue vor Wiederholungen'] },
@@ -93,9 +95,10 @@
   async function save() {
     saving = true
     try {
-      const data = { ...$state.snapshot(o), learn_steps: parseSteps(steps.learn_steps), relearn_steps: parseSteps(steps.relearn_steps), fsrs_reschedule: reschedule }
+      const data = { ...$state.snapshot(o), learn_steps: parseSteps(steps.learn_steps), relearn_steps: parseSteps(steps.relearn_steps), fsrs_reschedule: reschedule, limits_to_subdecks: toSubdecks }
       await api.save_deck_options(deckId, data)
-      notify('Optionen gespeichert')
+      notify(toSubdecks ? 'Optionen gespeichert, Limits auch für die Unterstapel' : 'Optionen gespeichert')
+      toSubdecks = false
       await load()
     } catch (e) {
       notify(String(e?.message ?? e), true)
@@ -189,14 +192,16 @@
     <section>
       <h2>Tageslimits</h2>
       <div class="fields">
-        <label>Neue Karten pro Tag<input type="number" min="0" bind:value={o.new_per_day} /></label>
-        <label>Wiederholungen pro Tag<input type="number" min="0" bind:value={o.reviews_per_day} /></label>
-        <label>Nur dieser Stapel: neue Karten<input type="number" min="0" placeholder="wie Voreinstellung" value={o.limits.new ?? ''} oninput={limitInput('new')} /></label>
-        <label>Nur dieser Stapel: Wiederholungen<input type="number" min="0" placeholder="wie Voreinstellung" value={o.limits.review ?? ''} oninput={limitInput('review')} /></label>
+        <label>Neue Karten pro Tag<input type="number" min="0" placeholder={String(o.new_per_day)} value={o.limits.new ?? ''} oninput={limitInput('new')} /></label>
+        <label>Wiederholungen pro Tag<input type="number" min="0" placeholder={String(o.reviews_per_day)} value={o.limits.review ?? ''} oninput={limitInput('review')} /></label>
         <label>Nur heute: neue Karten<input type="number" min="0" placeholder="wie sonst" value={o.limits.new_today ?? ''} oninput={limitInput('new_today')} /></label>
         <label>Nur heute: Wiederholungen<input type="number" min="0" placeholder="wie sonst" value={o.limits.review_today ?? ''} oninput={limitInput('review_today')} /></label>
       </div>
+      <p class="muted">Gilt nur für diesen Stapel. Leer = {o.new_per_day} neue / {o.reviews_per_day} Wiederholungen aus der Voreinstellung.</p>
       <div class="checks">
+        {#if o.subdecks}
+          <label class="check"><input type="checkbox" bind:checked={toSubdecks} />Auch für alle {o.subdecks} Unterstapel übernehmen</label>
+        {/if}
         <label class="check"><input type="checkbox" bind:checked={o.new_cards_ignore_review_limit} />Neue Karten ignorieren das Wiederholungslimit <span class="muted">(alle Stapel)</span></label>
         <label class="check"><input type="checkbox" bind:checked={o.apply_all_parent_limits} />Limits aller übergeordneten Stapel anwenden <span class="muted">(alle Stapel)</span></label>
       </div>

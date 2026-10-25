@@ -157,6 +157,7 @@ def run(token: str, method: str, args: list):
     with e.lock:
         e.account.access = token
         cloud.sync(e.core._col, e.account)
+        e.core.mix_subdecks_by_default()  # after the pull: a fresh copy only has the user's presets now
         if method == "warm":  # the web app opening: load the collection here before the first real call needs it
             return None
         tmp = Path(tempfile.mkdtemp())
