@@ -90,7 +90,7 @@ export async function pull() {
       const { data, error } = await sb.from(t).select('*').gt('usn', after).neq('device', device).order('usn').limit(1000)
       if (error) throw new Error(error.message)
       rows.push(...data)
-      if (data.length) after = max = Math.max(max, data[data.length - 1].usn)
+      if (data.length) max = Math.max(max, (after = data[data.length - 1].usn)) // this table's position, not the overall max
       if (data.length < 1000) return rows
     }
   }))

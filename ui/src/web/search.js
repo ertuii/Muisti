@@ -4,23 +4,31 @@
 import { stripHtml } from './render.js'
 
 const fold = (s) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
-const glob = (pat) => new RegExp('^' + pat.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/_/g, '.') + '$', 'i')
+const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+// * and _ are wildcards; \* \_ \" \\ stand for the characters themselves (Anki's escapes)
+const glob = (pat) => new RegExp('^' + pat.replace(/\\(.)|[*_]|[^\\*_]+/g, (m, lit) =>
+  lit !== undefined ? esc(lit) : m === '*' ? '.*' : m === '_' ? '.' : esc(m)) + '$', 'i')
+// deck:a and tag:a match a and everything below it
+const inTree = (re, name) => name.split('::').some((_, i, parts) => re.test(parts.slice(0, i + 1).join('::')))
 
 function terms(q) {
-  return [...q.matchAll(/(-?)(?:(\w+):)?(?:"([^"]*)"|(\S+))/g)].map(([, neg, key, quoted, word]) => ({
-    neg: !!neg, key: key?.toLowerCase(), val: quoted ?? word,
-  }))
+  return [...q.matchAll(/(-?)(?:(\w+):)?(?:"((?:[^"\\]|\\.)*)"|(\S+))/g)].map(([, neg, key, quoted, word]) => {
+    let val = quoted ?? word
+    const inner = !key && quoted !== undefined && /^(\w+):(.*)$/s.exec(quoted) // Anki's "deck:a b"
+    if (inner) [, key, val] = inner
+    return { neg: !!neg, key: key?.toLowerCase(), val }
+  })
 }
 
 function matcher({ key, val }, ctx) {
   const v = val.toLowerCase()
   if (key === 'deck') {
     const re = glob(val)
-    return (c) => { const n = ctx.deckName(c.odid || c.did); return re.test(n) || n.toLowerCase().startsWith(v + '::') }
+    return (c) => inTree(re, ctx.deckName(c.odid || c.did))
   }
   if (key === 'tag') {
     const re = glob(val)
-    return (c, note) => note.tags.trim().split(/\s+/).some((t) => re.test(t) || t.toLowerCase().startsWith(v + '::'))
+    return (c, note) => note.tags.trim().split(/\s+/).some((t) => inTree(re, t))
   }
   if (key === 'note') { const re = glob(val); return (c, note) => re.test(ctx.nt(note.mid)?.name ?? '') }
   if (key === 'flag') return (c) => (c.flags & 7) === Number(val)

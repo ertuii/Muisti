@@ -207,7 +207,7 @@ def _push(col, token: str, device: str, crt: bool) -> int:
         f"select id from notetypes{where} union select ntid from templates{where}")]
     for r in decks + confs + nts:
         r["mod"] = r["data"].get("mod") or now
-    config = [{"key": k, "mod": m, "val": json.loads(bytes(v))} for k, m, v in col.db.all(f"select key, mtime_secs, val from config{where} and key != ?", GONE_NOTETYPES)]
+    config = [{"key": k, "mod": m, "val": json.loads(bytes(v))} for k, m, v in col.db.all(f"select key, mtime_secs, val from config{where} and key not in (?, ?)", GONE_NOTETYPES, LINKED)]
     if crt:  # due days of reviews count from the collection's creation day: the web needs it
         config.append({"key": "_crt", "mod": 0, "val": col.crt})
 
@@ -242,6 +242,7 @@ def _push(col, token: str, device: str, crt: bool) -> int:
 
 
 GONE_NOTETYPES = "muisti.goneNotetypes"
+LINKED = "muisti.account"  # the account this collection last synced with
 LOCAL_TABLES = ("notes", "cards", "revlog", "decks", "deck_config", "notetypes", "config")
 
 
@@ -386,21 +387,27 @@ def sync(col, account: Account, pull: bool = True) -> dict:
         return {"sent": _push(col, account.token(), d["device"], crt=False), "received": 0}
     token = account.token()
     d = account.load()
-    since = d.get("last_usn") or 0
+    first = d.get("last_usn") is None
+    # a collection replaced since the last sync (Anki migration, .colpkg import, backup, AnkiWeb download) keeps
+    # its old usns and would never be sent: pull everything again and send everything (the newer side wins)
+    relink = not first and col.get_config(LINKED, None) != d["user_id"]
+    since = 0 if relink else d.get("last_usn") or 0
     from concurrent.futures import ThreadPoolExecutor
 
     with ThreadPoolExecutor(len(TABLES) + 1) as pool:  # the schema check and one request per table, all at once
         state = pool.submit(_http, "GET", "/rest/v1/sync_state?select=usn,schema", token=token)
-        pulled = dict(zip(TABLES, pool.map(lambda t: _pull(token, t, since, d["device"]), TABLES)))
+        mine = "" if relink else d["device"]  # relink: our own earlier rows too (_crt above all)
+        pulled = dict(zip(TABLES, pool.map(lambda t: _pull(token, t, since, mine), TABLES)))
         state = state.result()
     if state and state[0]["schema"] > SCHEMA:
         raise CloudError("Bitte aktualisiere Muisti, um mit deinem Konto zu synchronisieren.")
-    first = d.get("last_usn") is None
-    if first:  # everything here is new to the account; what the pull brings in is marked as synced
+    if first or relink:  # everything here is new to the account; what the pull brings in is marked as synced
         for t in LOCAL_TABLES:
             col.db.execute(f"update {t} set usn = -1")
     received = _apply(col, pulled, first)
     sent = _push(col, token, d["device"], crt=first and not any(r["key"] == "_crt" for r in pulled["config"]))
     # not the newest usn online: another device may have written since, and our own rows are skipped anyway
     account.set(last_usn=max([since] + [r["usn"] for rows in pulled.values() for r in rows]))
+    if col.get_config(LINKED, None) != d["user_id"]:
+        col.set_config(LINKED, d["user_id"])  # stays local: _push leaves this key out
     return {"sent": sent, "received": received}

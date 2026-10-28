@@ -113,6 +113,20 @@ assert not col_b.models.get(nt["id"])
 assert col_a.get_config(cloud.GONE_NOTETYPES, None) is None
 col_c.close()
 
+# A's collection is replaced (Anki migration, .colpkg, AnkiWeb download): its rows come with old usns, all still reach B
+sem = col_a.decks.id("Semester_3::Netze")
+old = col_a.new_note(col_a.models.by_name("Basic"))
+old["Front"], old["Back"] = "TCP", "verbindungsorientiert"
+col_a.add_note(old, sem)
+for t in cloud.LOCAL_TABLES:
+    col_a.db.execute(f"update {t} set usn = 5")  # as synced with AnkiWeb before
+col_a.remove_config(cloud.LINKED)  # a replaced collection never synced with this account
+cloud.sync(col_a, acc_a)
+cloud.sync(col_b, acc_b)
+assert col_b.get_note(old.id)["Front"] == "TCP"
+assert col_b.decks.id_for_name("Semester_3::Netze") == sem
+assert col_a.get_config(cloud.LINKED) == acc_a.load()["user_id"]
+
 # everything is still a valid Anki collection
 for c in (col_a, col_b):
     problems, ok = c.fix_integrity()
