@@ -745,5 +745,14 @@
  "Alle Karten auswählen": "Seleccionar todas las tarjetas",
  "Klick": "clic",
  "Mehrere Karten auswählen": "Seleccionar varias tarjetas",
- "Unter Windows steht Strg für ⌘.": "En Windows, usa Ctrl en lugar de ⌘."
+ "Unter Windows steht Strg für ⌘.": "En Windows, usa Ctrl en lugar de ⌘.",
+ "Fett": "Negrita",
+ "Kursiv": "Cursiva",
+ "Unterstrichen": "Subrayado",
+ "Durchgestrichen": "Tachado",
+ "Aufzählung": "Lista con viñetas",
+ "Nummerierte Liste": "Lista numerada",
+ "Formatierung entfernen": "Quitar formato",
+ "Formatierung": "Formato",
+ "Markdown geht auch: **fett**, *kursiv*, - Liste": "También con Markdown: **negrita**, *cursiva*, - lista"
 }

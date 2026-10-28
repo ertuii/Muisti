@@ -21,6 +21,10 @@
   img{max-width:100%;height:auto}
   hr#answer{border:0;border-top:1px solid #8884;margin:28px 0}
   audio{display:block;margin:12px auto}
+  ul,ol{padding-left:1.4em;margin:.5em 0}li{margin:.15em 0}li::marker{color:#8889}
+  .ba-centered{width:fit-content;margin-inline:auto;text-align:left}
+  blockquote{margin:.5em 0;padding-left:.8em;border-left:3px solid #8886;opacity:.85}
+  code{font-family:ui-monospace,monospace;font-size:.9em;padding:.1em .3em;border-radius:4px;background:#8882}
   .ba-tts{border:1px solid #8886;background:transparent;color:inherit;border-radius:8px;padding:4px 8px;cursor:pointer;vertical-align:middle}
   input#typeans{box-sizing:border-box;width:100%;font:inherit;padding:8px 12px;border:1px solid #8888;border-radius:8px;background:transparent;color:inherit}
   code#typeans{font-family:ui-monospace,monospace}
@@ -38,6 +42,9 @@
     parent.postMessage({ key: e.key, code: e.code, meta: e.metaKey || e.ctrlKey, alt: e.altKey, shift: e.shiftKey }, '*')
   })
   addEventListener('input', (e) => e.target.id === 'typeans' && parent.postMessage({ typed: e.target.value }, '*'))
+  // Anki's default card style centers the text: a centered list would put its bullets far from the words,
+  // so it is centered as a block with its items left-aligned
+  addEventListener('DOMContentLoaded', () => document.querySelectorAll('ul,ol').forEach((l) => getComputedStyle(l).textAlign === 'center' && l.classList.add('ba-centered')))
   addEventListener('load', () => document.getElementById('answer')?.scrollIntoView())
   addEventListener('load', () => document.getElementById('typeans')?.focus())
   const say = (b) => { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(b.dataset.text); u.lang = b.dataset.lang; speechSynthesis.speak(u) }

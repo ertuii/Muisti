@@ -2,6 +2,8 @@
   import DOMPurify from 'dompurify'
   import { api } from './api.js'
   import IOEditor from './IOEditor.svelte'
+  import { Bold, Italic, Underline, Strikethrough, List, ListOrdered, RemoveFormatting } from '@lucide/svelte'
+  import { BLOCKS, closedInline, looksLikeMarkdown, toHtml } from './markdown.js'
   import { t } from './i18n.js'
 
   // Note HTML (imported decks, cards from Claude) runs in the app window here, unlike CardFrame's sandbox:
@@ -124,7 +126,54 @@
     } else if (e.clipboardData?.types.includes('text/html')) {
       e.preventDefault()
       document.execCommand('insertHTML', false, clean(e.clipboardData.getData('text/html')))
+    } else if (looksLikeMarkdown(e.clipboardData?.getData('text/plain') ?? '')) {
+      e.preventDefault()
+      document.execCommand('insertHTML', false, clean(toHtml(e.clipboardData.getData('text/plain'))))
     }
+  }
+
+  // Toolbar: works on the field being edited, or the last one that was
+  const TOOLS = [
+    [Bold, 'bold', t('Fett'), '⌘B'], [Italic, 'italic', t('Kursiv'), '⌘I'], [Underline, 'underline', t('Unterstrichen'), '⌘U'],
+    [Strikethrough, 'strikeThrough', t('Durchgestrichen')], [List, 'insertUnorderedList', t('Aufzählung')],
+    [ListOrdered, 'insertOrderedList', t('Nummerierte Liste')], [RemoveFormatting, 'removeFormat', t('Formatierung entfernen')],
+  ]
+  let lastEditor = null
+  let active = $state({})
+  function format(cmd) {
+    if (!editors.includes(document.activeElement)) (lastEditor ?? editors.find(Boolean))?.focus()
+    document.execCommand(cmd)
+    onSelection()
+  }
+  function onSelection() {
+    if (editors.includes(document.activeElement)) lastEditor = document.activeElement
+    else return void (active = {})
+    active = Object.fromEntries(TOOLS.map(([, cmd]) => [cmd, document.queryCommandState(cmd)]))
+  }
+
+  // Markdown while typing: "- " starts a list, "**fett**" turns bold once closed, and so on (see markdown.js)
+  function onInput(e) {
+    if (e.inputType !== 'insertText' || !e.data) return
+    const sel = getSelection(), node = /** @type {Text} */ (sel.focusNode), at = sel.focusOffset
+    if (!sel.isCollapsed || node?.nodeType !== Node.TEXT_NODE) return
+    const select = (from, to) => { const r = document.createRange(); r.setStart(node, from); r.setEnd(node, to); sel.removeAllRanges(); sel.addRange(r) }
+    if (e.data === ' ' && !node.previousSibling) {
+      for (const { re, cmd } of BLOCKS) {
+        const m = re.exec(node.data.slice(0, at - 1))
+        if (!m) continue
+        select(0, at)
+        document.execCommand('delete')
+        const [name, value] = cmd(m)
+        return void document.execCommand(name, false, value)
+      }
+    }
+    const hit = closedInline(node.data.slice(0, at))
+    if (!hit) return
+    select(hit.start, hit.start + hit.length)
+    document.execCommand('insertHTML', false, clean(`<${hit.tag}>${hit.inner.replace(/[&<>]/g, (c) => `&#${c.charCodeAt(0)};`)}</${hit.tag}>`))
+    // keep typing in plain text after the formatted word
+    const cmd = { b: 'bold', i: 'italic', s: 'strikeThrough' }[hit.tag]
+    if (cmd && document.queryCommandState(cmd)) document.execCommand(cmd)
   }
 
   function onDrop(e) {
@@ -152,6 +201,8 @@
   load()
 </script>
 
+<svelte:document onselectionchange={onSelection} />
+
 <form class="editor" onsubmit={(e) => { e.preventDefault(); save() }}>
   <div class="meta">
     <label>{t('Notiztyp')}
@@ -170,12 +221,23 @@
     <IOEditor bind:occlusion={fields[names[0]]} bind:image={fields[names[1]]} {notify} />
   {/if}
 
+  {#if !type?.io || names.length > 2}
+    <div class="tools" role="toolbar" aria-label={t('Formatierung')}>
+      {#each TOOLS as [Icon, cmd, label, key]}
+        <!-- mousedown keeps the selection in the field -->
+        <button type="button" class="plain" class:on={active[cmd]} aria-pressed={!!active[cmd]} title={key ? `${label} (${key})` : label}
+          aria-label={label} onmousedown={(e) => e.preventDefault()} onclick={() => format(cmd)}><Icon size={17} /></button>
+      {/each}
+      <span class="mdhint muted">{t('Markdown geht auch: **fett**, *kursiv*, - Liste')}</span>
+    </div>
+  {/if}
+
   {#each names as name, i (name)}
     {#if !type?.io || i > 1}
     <div class="field">
       <span class="fname">{name}</span>
       <div class="rich" contenteditable="true" role="textbox" aria-multiline="true" aria-label={name} tabindex="0"
-        bind:this={editors[i]} bind:innerHTML={fields[name]} onkeydown={onKey} onpaste={onPaste} ondrop={onDrop}></div>
+        bind:this={editors[i]} bind:innerHTML={fields[name]} oninput={onInput} onkeydown={onKey} onpaste={onPaste} ondrop={onDrop}></div>
       {#if i === 0 && dupe}<span class="dupe">{t('Eine Notiz mit diesem ersten Feld gibt es schon.')}</span>{/if}
     </div>
     {/if}
@@ -211,6 +273,16 @@
   }
   .rich:focus { border-color: var(--ink); }
   .rich :global(img) { max-width: 100%; }
+  .rich :global(:is(ul, ol)) { margin: 4px 0; padding-left: 1.5em; }
+  .rich :global(li::marker) { color: var(--ink-3); }
+  .rich :global(:is(h1, h2, h3)) { margin: 6px 0; line-height: 1.25; }
+  .rich :global(blockquote) { margin: 4px 0; padding-left: 12px; border-left: 3px solid var(--rule-2); color: var(--ink-2); }
+  .rich :global(code) { font-family: ui-monospace, monospace; font-size: .9em; padding: 1px 4px; border-radius: 4px; background: var(--paper-2); }
+  .tools { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; margin-bottom: -8px; }
+  .tools button { padding: 6px; line-height: 0; }
+  .tools button.on { color: var(--ink); background: var(--paper-2); }
+  .mdhint { margin-left: auto; font-size: 12px; }
+  @media (max-width: 720px) { .mdhint { display: none; } }
   .bar { display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
   .hint { margin-right: auto; }
   .dupe { font-size: 13px; color: var(--m-red); }

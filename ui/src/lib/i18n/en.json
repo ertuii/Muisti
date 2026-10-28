@@ -745,5 +745,14 @@
  "Alle Karten auswählen": "Select all cards",
  "Klick": "click",
  "Mehrere Karten auswählen": "Select several cards",
- "Unter Windows steht Strg für ⌘.": "On Windows, use Ctrl for ⌘."
+ "Unter Windows steht Strg für ⌘.": "On Windows, use Ctrl for ⌘.",
+ "Fett": "Bold",
+ "Kursiv": "Italic",
+ "Unterstrichen": "Underline",
+ "Durchgestrichen": "Strikethrough",
+ "Aufzählung": "Bulleted list",
+ "Nummerierte Liste": "Numbered list",
+ "Formatierung entfernen": "Clear formatting",
+ "Formatierung": "Formatting",
+ "Markdown geht auch: **fett**, *kursiv*, - Liste": "Markdown works too: **bold**, *italic*, - list"
 }
