@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Muisti – Ankis Kern, ruhiger Kopf, Claude als Autor</title>
-<meta name="description" content="Muisti lernt wie Anki – gleiche Planung (FSRS), gleiche .apkg-Dateien – mit ruhigem, modernem Aussehen. Claude schreibt dir die Karten direkt in deine Sammlung. Kostenlos für macOS und Windows.">
+<meta name="description" content="Muisti lernt wie Anki – gleiche Planung (FSRS), gleiche .apkg-Dateien – mit ruhigem, modernem Aussehen. Claude schreibt dir die Karten direkt in deine Sammlung. Kostenlos für macOS und Windows – und im Browser.">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <meta property="og:title" content="Muisti">
-<meta property="og:description" content="Ankis Kern. Ruhiger Kopf. Claude als Autor. Kostenlos für macOS und Windows.">
+<meta property="og:description" content="Ankis Kern. Ruhiger Kopf. Claude als Autor. Kostenlos für macOS, Windows und im Browser.">
 <style>
 @font-face{font-family:Archivo;font-style:normal;font-display:swap;font-weight:100 900;src:url(fonts/archivo-latin-wght-normal.woff2) format('woff2-variations');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 @font-face{font-family:Archivo;font-style:normal;font-display:swap;font-weight:100 900;src:url(fonts/archivo-latin-ext-wght-normal.woff2) format('woff2-variations');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
@@ -71,6 +71,7 @@ kbd{font:600 .78em/1 var(--font);border:1px solid var(--rule-2);border-bottom-wi
 .meta{margin-top:18px;font-size:14px;color:var(--ink-3)}
 .mobile-note{display:none;margin-top:14px;font-size:15px;color:var(--ink-2)}
 .is-mobile .mobile-note{display:block}
+.is-mobile [data-web]{order:-1;background:var(--ink);color:var(--paper);border-color:var(--ink)}
 
 .ask{position:relative;background:var(--card);border:1px solid var(--rule-2);border-radius:14px;padding:20px 24px;font-size:17px;max-width:540px;animation:rise .5s var(--ease) .15s both}
 .who{display:block;font-size:13px;font-weight:600;color:var(--ink-3);margin-bottom:6px}
@@ -225,6 +226,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px 
     <a href="#funktionen">Funktionen</a>
     <a href="#claude">Claude</a>
     <a href="#tastatur">Tastatur</a>
+    <a href="#web">Im Browser</a>
     <a href="#installation">Installation</a>
     <a href="https://github.com/ertuii/Muisti">GitHub</a>
   </div>
@@ -239,9 +241,10 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px 
       <div class="cta" data-downloads>
         <a class="btn" data-os="mac" href="https://github.com/ertuii/Muisti/releases/latest/download/Muisti-macOS.zip">Für macOS laden<small>Apple Silicon (M1 oder neuer)</small></a>
         <a class="btn ghost" data-os="win" href="https://github.com/ertuii/Muisti/releases/latest/download/Muisti-Windows.zip">Für Windows laden<small>Windows 10 und 11, 64-Bit</small></a>
+        <a class="btn ghost" data-web href="https://app.muisti.de">Im Browser öffnen<small>Ohne Installation, mit Muisti-Konto</small></a>
       </div>
-      <p class="meta">Version <span data-version>0.4.0</span> · kostenlos · Open Source (AGPL) · deine Daten bleiben auf deinem Rechner</p>
-      <p class="mobile-note">Muisti läuft auf Mac und Windows. Öffne diese Seite am Laptop, um es zu laden.</p>
+      <p class="meta">Version <span data-version>0.4.0</span> · kostenlos · Open Source (AGPL) · Desktop-App ohne Anmeldung, deine Daten bleiben auf deinem Rechner</p>
+      <p class="mobile-note">Am Handy lernst du mit Muisti im Browser. Die Desktop-App lädst du am Laptop.</p>
     </div>
 
     <div aria-label="Beispiel: Claude legt Karten an">
@@ -295,7 +298,6 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px 
           <p class="examline"><i class="dot"></i>Klausur Zellbiologie am 25. Oktober · 12 neue Karten pro Tag reichen</p>
         </div>
       </div>
-      <p class="caption">Nachgezeichnet mit Beispieldaten.</p>
     </div>
   </div>
 </section>
@@ -398,6 +400,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px 
       <h2>Aus der Vorlesung in den Stapel, mit einem Satz.</h2>
       <p class="intro">Muisti bringt einen MCP-Server mit. Damit kann Claude Stapel anlegen, Karten schreiben, suchen und überarbeiten, direkt in deiner lokalen Sammlung.</p>
       <p class="connect">Verbinden: <span class="path">Einstellungen → Claude verbinden → Verbinden</span>. Das klappt mit Claude Desktop und Claude Code. Claude Desktop danach einmal neu starten.</p>
+      <p class="connect">Im Browser verbindest du Claude als Konnektor, in claude.ai und in der Claude-App am Handy: <a href="claude.html">so geht's</a>.</p>
     </div>
     <div>
       <ul class="prompts">
@@ -411,9 +414,37 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px 
   </div>
 </section>
 
+<section class="band" id="web">
+  <div class="wrap">
+    <h2>Auch im Browser. Ohne Installation.</h2>
+    <p class="intro">Unter <a href="https://app.muisti.de">app.muisti.de</a> lernst du direkt im Browser, am Laptop, am Handy oder in der Bibliothek. Dafür legst du ein kostenloses Muisti-Konto an. Meldest du dich mit demselben Konto in der Desktop-App an, sind deine Karten überall auf demselben Stand.</p>
+    <div class="cta"><a class="btn" href="https://app.muisti.de">Muisti im Browser öffnen<small>app.muisti.de</small></a></div>
+    <div class="ledger">
+      <div>
+        <h3>Desktop-App</h3>
+        <dl>
+          <div><dt>Anmeldung</dt><dd>Keine. Laden, öffnen, lernen.</dd></div>
+          <div><dt>Deine Daten</dt><dd>Nur auf deinem Rechner, außer du schaltest AnkiWeb oder ein Muisti-Konto ein.</dd></div>
+          <div><dt>Anki-Stapel</dt><dd>Übernimmt dein Anki-Profil mit Lernstand und Medien.</dd></div>
+          <div><dt>Claude</dt><dd>Claude Desktop und Claude Code, direkt auf deine lokale Sammlung.</dd></div>
+        </dl>
+      </div>
+      <div>
+        <h3>Im Browser</h3>
+        <dl>
+          <div><dt>Anmeldung</dt><dd>Muisti-Konto mit E-Mail und Passwort.</dd></div>
+          <div><dt>Deine Daten</dt><dd>In deinem Konto, nur für dich sichtbar. Gleicht sich mit der Desktop-App ab.</dd></div>
+          <div><dt>Anki-Stapel</dt><dd>Sammlung als .colpkg importieren.</dd></div>
+          <div><dt>Claude</dt><dd>Als Konnektor in claude.ai und in der Claude-App am Handy.</dd></div>
+        </dl>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="band" id="installation">
   <div class="wrap">
-    <h2>In drei Schritten installiert.</h2>
+    <h2>Die Desktop-App in drei Schritten.</h2>
     <p class="intro">Laden, entpacken, einmal bestätigen. Updates kommen danach von selbst: Die App meldet neue Versionen und tauscht sich mit einem Klick aus. Deine Karten liegen getrennt und bleiben unberührt.</p>
     <p class="intro"><b>Früher BetterAnki?</b> Lade einfach Muisti. Beim ersten Start zieht es deine Karten, Einstellungen und die Claude-Verbindung mit um. Die alte App kannst du danach löschen.</p>
     <div class="os">
@@ -440,7 +471,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px 
     <div class="why">
       <div><h3>Warum die Warnung?</h3><p>Apple und Microsoft warnen bei jeder App, die nicht mit einem kostenpflichtigen Zertifikat signiert ist. Das sagt nichts über den Inhalt, nur dass der Herausgeber nicht bezahlt hat. Du bestätigst es genau einmal.</p></div>
       <div><h3>Woher weiß ich, was drin ist?</h3><p>Der ganze Code ist <a href="https://github.com/ertuii/Muisti">offen auf GitHub</a>. Jede Version baut GitHub Actions automatisch aus genau diesem Code, nicht ein Rechner zu Hause.</p></div>
-      <div><h3>Wo liegen meine Daten?</h3><p>Nur auf deinem Rechner: unter macOS in <span class="path">~/Library/Application Support/Muisti</span>, unter Windows in <span class="path">%APPDATA%\Muisti</span>. Kein Konto, keine Cloud, außer du schaltest AnkiWeb ein.</p></div>
+      <div><h3>Wo liegen meine Daten?</h3><p>Bei der Desktop-App nur auf deinem Rechner: unter macOS in <span class="path">~/Library/Application Support/Muisti</span>, unter Windows in <span class="path">%APPDATA%\Muisti</span>. Kein Konto nötig, keine Cloud, außer du schaltest AnkiWeb oder ein Muisti-Konto ein.</p></div>
     </div>
   </div>
 </section>
@@ -451,6 +482,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px 
     <div class="cta" data-downloads>
       <a class="btn" data-os="mac" href="https://github.com/ertuii/Muisti/releases/latest/download/Muisti-macOS.zip">Für macOS laden<small>Apple Silicon (M1 oder neuer)</small></a>
       <a class="btn ghost" data-os="win" href="https://github.com/ertuii/Muisti/releases/latest/download/Muisti-Windows.zip">Für Windows laden<small>Windows 10 und 11, 64-Bit</small></a>
+      <a class="btn ghost" data-web href="https://app.muisti.de">Im Browser öffnen<small>Ohne Installation, mit Muisti-Konto</small></a>
     </div>
     <p class="meta">Version <span data-version>0.4.0</span> · <a href="https://github.com/ertuii/Muisti/releases">alle Versionen und Änderungen</a></p>
   </div>
