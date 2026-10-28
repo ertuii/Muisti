@@ -26,6 +26,18 @@ export const api = new Proxy({}, {
 const HUES = ['red', 'blue', 'green', 'ochre', 'violet', 'teal', 'pink']
 export const hueFor = (topId) => `var(--m-${HUES[Number(BigInt(topId) % 7n)]})`
 
+// Anki's card flags (0 = none); labels go through t()
+export const FLAG_COLORS = [
+  { n: 0, label: 'Keine Markierung', color: 'var(--ink-3)' },
+  { n: 1, label: 'Rot', color: 'var(--m-red)' },
+  { n: 2, label: 'Orange', color: 'var(--m-ochre)' },
+  { n: 3, label: 'Grün', color: 'var(--m-green)' },
+  { n: 4, label: 'Blau', color: 'var(--m-blue)' },
+  { n: 5, label: 'Pink', color: 'var(--m-pink)' },
+  { n: 6, label: 'Türkis', color: 'var(--m-teal)' },
+  { n: 7, label: 'Violett', color: 'var(--m-violet)' },
+]
+
 // Deck tree -> flat rows with depth and the top-level id (for the hue).
 export function flatten(decks, depth = 0, top = null, out = []) {
   for (const d of decks) {

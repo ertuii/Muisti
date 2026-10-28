@@ -1,13 +1,14 @@
 <script>
-  import { ArrowLeft, Pencil, Undo2, FastForward, Pause } from '@lucide/svelte'
-  import { api } from './api.js'
+  import { ArrowLeft, Pencil, Undo2, FastForward, EllipsisVertical, Flag } from '@lucide/svelte'
+  import { api, FLAG_COLORS } from './api.js'
   import Editor from './Editor.svelte'
   import CardFrame from './CardFrame.svelte'
+  import CardInfo from './CardInfo.svelte'
   import { t, tmsg } from './i18n.js'
 
   // temporary: a pre-learn/practice deck, removed again when the session ends
   // plan: the study plan across all decks (nearest exam first) for `minutes`
-  let { deckId, deckName, flat, notify, onExit, temporary = false, plan = false, minutes = 0 } = $props()
+  let { deckId, deckName, flat, notify, onExit, onOptions, temporary = false, plan = false, minutes = 0 } = $props()
 
   let card = $state(null)
   let done = $state(false)
@@ -15,6 +16,11 @@
   let typed = '' // {{type:Field}}: what was typed into the card
   let answerHtml = $state('')
   let editing = $state(false)
+  let menu = $state(false) // the "more" menu (Anki's reviewer "More")
+  let confirmReset = $state(false)
+  let dueDays = $state(null) // set due date: the typed days while the field is open
+  let info = $state(null) // card info (core.card_info) in a sheet
+  let prevId = null // the card before this one, for "previous card info"
   let busy = false
   let prefs = $state({ show_remaining_due_counts: true, show_intervals_on_buttons: true, time_limit_secs: 0, hide_audio_play_buttons: false })
   let elapsed = $state(0) // seconds the current card has been shown
@@ -89,6 +95,7 @@
   ]
 
   async function next() {
+    prevId = card?.card_id ?? prevId
     timeUp = plan && minutes > 0 && Date.now() - sessionStart >= minutes * 60000
     card = timeUp ? null : await fetchCard()
     revealed = false
@@ -143,8 +150,51 @@
     await next()
   }
 
+  // the "more" menu, as in Anki's reviewer
+  const act = (fn) => async (...args) => {
+    menu = confirmReset = false
+    dueDays = null
+    try {
+      await fn(...args)
+    } catch (e) {
+      notify(String(e?.message ?? e), true)
+    }
+  }
+  const setFlag = act(async (n) => {
+    n = card.flag === n ? 0 : n // Anki: the same flag again removes it
+    await api.flag([card.card_id], n)
+    card.flag = n
+  })
+  const forget = act(async () => {
+    await api.forget_cards([card.card_id])
+    notify(t('Lernfortschritt zurückgesetzt'))
+    await next()
+  })
+  const setDue = act(async (days) => {
+    if (!/^\d+(-\d+)?!?$/.test(days.trim())) return notify(t('Tage als Zahl, z. B. 0, 3, 1-7 oder 3!'), true)
+    await api.set_due_date([card.card_id], days.trim())
+    notify(t('Fälligkeitsdatum gesetzt'))
+    await next()
+  })
+  const options = act(async () => {
+    clearTimeout(advanceTimer)
+    if (temporary) await api.end_prelearn(deckId)
+    onOptions(card.home_deck_id)
+  })
+  const focus = (el) => void setTimeout(() => el.focus()) // also when opened from inside the card frame
+  const showInfo = act(async (id) => {
+    if (id) info = await api.card_info(id)
+  })
+
   function onKey(e) {
     if (editing) return
+    if (info) return e.key === 'Escape' && (info = null)
+    if (menu) return e.key === 'Escape' && (menu = false)
+    const mod = e.metaKey || e.ctrlKey
+    if (card && mod && /^[0-7]$/.test(e.key)) return e.preventDefault(), setFlag(Number(e.key)) // Anki: Ctrl+1…7
+    if (card && mod && e.altKey && e.code === 'KeyN') return e.preventDefault(), forget()
+    if (card && mod && e.altKey && e.code === 'KeyI') return e.preventDefault(), showInfo(prevId)
+    if (card && mod && e.shiftKey && e.code === 'KeyD') return e.preventDefault(), (menu = true), (dueDays = '')
     if ((e.metaKey || e.ctrlKey) && e.key === 'z') return e.preventDefault(), undo()
     if (e.key === 'Escape') return exit()
     if (!card) return
@@ -153,6 +203,9 @@
     if (e.key === '-') return bury()
     if (e.key === '@') return suspend()
     if (e.key === '!') return suspend(true)
+    if (e.key === 'o' || e.key === 'O') return options()
+    if (e.key === 'i' || e.key === 'I') return showInfo(card.card_id)
+    if (mod) return
     if (!revealed && (e.key === ' ' || e.key === 'Enter')) return e.preventDefault(), reveal()
     if (revealed && (e.key === ' ' || e.key === 'Enter')) return e.preventDefault(), answer(3)
     if (revealed && ['1', '2', '3', '4'].includes(e.key)) answer(Number(e.key))
@@ -167,7 +220,7 @@
   next()
 </script>
 
-<svelte:window onkeydown={onKey} />
+<svelte:window onkeydown={onKey} onclick={(e) => !(e.target instanceof Element && e.target.closest('.menu-wrap')) && (menu = confirmReset = false)} />
 
 <div class="study">
   <header>
@@ -188,9 +241,37 @@
         {#if card.study.seconds_question || card.study.seconds_answer}
           <button class="plain" class:active={autoAdvance} onclick={toggleAuto} title={t('Automatisch weiter (A)')}><FastForward size={17} /></button>
         {/if}
-        <button class="plain" onclick={() => suspend()} title={t('Karte aussetzen (@), ganze Notiz: !')}><Pause size={17} /></button>
+        {#if card.flag}<span class="flag" title={t(FLAG_COLORS[card.flag].label)}><Flag size={17} fill={FLAG_COLORS[card.flag].color} color={FLAG_COLORS[card.flag].color} /></span>{/if}
         <button class="plain" onclick={undo} title={t('Rückgängig (⌘Z)')}><Undo2 size={17} /></button>
         <button class="plain" onclick={() => (editing = true)} title={t('Bearbeiten (E)')}><Pencil size={17} /></button>
+        <span class="menu-wrap">
+          <button class="plain" class:active={menu} onclick={() => ((menu = !menu), (confirmReset = false), (dueDays = null))} title={t('Mehr')} aria-haspopup="menu" aria-expanded={menu}><EllipsisVertical size={17} /></button>
+          {#if menu}
+            <div class="menu" role="menu">
+              <div class="flags" role="group" aria-label={t('Markierung setzen')}>
+                {#each FLAG_COLORS.slice(1) as f}
+                  <button class="plain dot" class:on={card.flag === f.n} style:--c={f.color} onclick={() => setFlag(f.n)} title="{t(f.label)} (Ctrl+{f.n})" aria-label={t(f.label)}></button>
+                {/each}
+              </div>
+              <button class="plain" onclick={act(bury)}>{t('Bis morgen zurückstellen')}<kbd>-</kbd></button>
+              <button class="plain" class:del={confirmReset} onclick={() => (confirmReset ? forget() : (confirmReset = true))}>{confirmReset ? t('Wirklich zurücksetzen?') : t('Lernfortschritt zurücksetzen …')}<kbd>⌥⌘N</kbd></button>
+              {#if dueDays === null}
+                <button class="plain" onclick={() => (dueDays = '')}>{t('Fälligkeitsdatum setzen …')}<kbd>⇧⌘D</kbd></button>
+              {:else}
+                <form class="due" onsubmit={(e) => (e.preventDefault(), setDue(dueDays))}>
+                  <input class="sm" bind:value={dueDays} placeholder={t('Tage: 0, 3, 1-7, 3!')} aria-label={t('In wie vielen Tagen fällig')} use:focus />
+                  <button class="sm">{t('OK')}</button>
+                </form>
+              {/if}
+              <button class="plain" onclick={act(() => suspend())}>{t('Karte aussetzen')}<kbd>@</kbd></button>
+              <button class="plain" onclick={act(() => suspend(true))}>{t('Notiz aussetzen')}<kbd>!</kbd></button>
+              <hr />
+              <button class="plain" onclick={options}>{t('Stapel-Optionen')}<kbd>O</kbd></button>
+              <button class="plain" onclick={() => showInfo(card.card_id)}>{t('Kartenstatistik')}<kbd>I</kbd></button>
+              <button class="plain" onclick={() => showInfo(prevId)} disabled={!prevId}>{t('Vorherige Kartenstatistik')}<kbd>⌥⌘I</kbd></button>
+            </div>
+          {/if}
+        </span>
       </div>
     {/if}
   </header>
@@ -231,6 +312,15 @@
     </footer>
   {/if}
 </div>
+
+{#if info}
+  <div class="sheet-backdrop" onclick={(e) => e.target === e.currentTarget && (info = null)} role="presentation">
+    <div class="sheet" role="dialog" aria-label={t('Kartenstatistik')}>
+      <div class="sheet-head"><h2>{t('Kartenstatistik')}</h2><button class="ghost sm" onclick={() => (info = null)}>{t('Schließen')}</button></div>
+      <CardInfo {info} />
+    </div>
+  </div>
+{/if}
 
 {#if editing && card}
   <div class="sheet-backdrop" onclick={(e) => e.target === e.currentTarget && (editing = false)} role="presentation">
@@ -279,6 +369,23 @@
   .sheet-backdrop { position: fixed; inset: 0; background: rgb(0 0 0 / 0.28); display: flex; justify-content: flex-end; z-index: 20; }
   .sheet { width: min(640px, 100%); height: 100%; background: var(--paper); padding: 28px 32px; overflow: auto; display: flex; flex-direction: column; gap: 20px; animation: slide 240ms var(--ease); }
   .sheet h2 { font-size: 20px; font-weight: 750; }
+  .sheet-head { display: flex; justify-content: space-between; align-items: center; }
+  .flag { display: flex; align-items: center; padding: 0 6px; }
+  .menu-wrap { position: relative; }
+  .menu {
+    position: absolute; right: 0; top: calc(100% + 4px); z-index: 10; min-width: 260px;
+    background: var(--paper); border: 1px solid var(--rule); border-radius: 10px; padding: 6px;
+    box-shadow: 0 8px 28px rgb(0 0 0 / 0.14); display: flex; flex-direction: column;
+  }
+  .menu > button { color: var(--ink); justify-content: space-between; gap: 16px; padding: 8px 10px; font-weight: 500; }
+  .menu > button:disabled { opacity: 0.4; }
+  .menu .del { color: var(--m-red); }
+  .menu hr { border: 0; border-top: 1px solid var(--rule); margin: 4px 0; }
+  .flags { display: flex; justify-content: space-between; padding: 6px 8px 8px; }
+  .dot { width: 22px; height: 22px; min-width: 0; padding: 0; border-radius: 50%; background: var(--c); border: 2px solid var(--paper); box-shadow: 0 0 0 1px var(--rule); }
+  .dot.on { box-shadow: 0 0 0 2px var(--ink); }
+  .due { display: flex; gap: 6px; padding: 4px 6px; }
+  .due input { flex: 1; min-width: 0; }
   @keyframes slide { from { transform: translateX(32px); opacity: 0; } }
   @media (max-width: 720px) {
     header { padding: 6px 6px 6px 2px; gap: 6px; }
@@ -294,6 +401,9 @@
     .done { padding: 24px 16px; }
     .done h1 { font-size: 32px; }
     .row { flex-wrap: wrap; }
+    .menu > button { height: 44px; font-size: 16px; }
+    .menu kbd { display: none; }
+    .dot { width: 28px; height: 28px; }
     .sheet { padding: 20px 16px calc(20px + env(safe-area-inset-bottom)); }
   }
 </style>

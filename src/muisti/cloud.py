@@ -22,6 +22,19 @@ CARD_COLS = ["id", "nid", "did", "ord", "mod", "type", "queue", "due", "ivl", "f
              "odue", "odid", "flags", "data"]
 REVLOG_COLS = ["id", "cid", "ease", "ivl", "lastIvl", "factor", "time", "type"]
 
+# The browser page after Google sign-in, in the app's colors (ui/src/app.css) and Consent.svelte's layout.
+_DONE_PAGE = """<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>Muisti</title><style>
+:root{{--paper:#fbfaf7;--ink:#1c1d21;--muted:#5d5b55;--ok:#1e9452;--bad:#d93a28;color-scheme:light dark}}
+@media (prefers-color-scheme:dark){{:root{{--paper:#17181b;--ink:#ecebe6;--muted:#a9a69e;--ok:#45c07c;--bad:#f0624f}}}}
+body{{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px 16px;box-sizing:border-box;
+background:var(--paper);color:var(--ink);font:16px/1.5 system-ui,-apple-system,sans-serif}}
+.box{{width:min(400px,100%);display:flex;flex-direction:column;gap:14px}}
+.mark{{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:24px;font-weight:700;
+color:#fff;background:var(--ok)}}.err{{background:var(--bad)}}
+h1{{font-size:26px;font-weight:750;letter-spacing:-.02em;margin:8px 0 0}}p{{margin:0;color:var(--muted)}}
+</style><main class=box><div class="mark{cls}">{mark}</div><h1>{title}</h1><p>{text}</p></main>"""
+
 
 class CloudError(Exception):
     pass
@@ -97,8 +110,12 @@ class Account:
         class Back(BaseHTTPRequestHandler):
             def do_GET(self):
                 got.update(urllib.parse.parse_qsl(urllib.parse.urlsplit(self.path).query))
-                body = ("<meta charset=utf-8><body style='font:16px system-ui;padding:40px'>"
-                        "Angemeldet. Du kannst dieses Fenster schließen und zu Muisti zurückkehren.").encode()
+                ok = "code" in dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(self.path).query))
+                body = _DONE_PAGE.format(
+                    mark="✓" if ok else "!", cls="" if ok else " err",
+                    title="Angemeldet" if ok else "Anmeldung fehlgeschlagen",
+                    text="Du kannst dieses Fenster schließen und zu Muisti zurückkehren." if ok
+                    else "Schließe dieses Fenster und versuche es in Muisti erneut.").encode()
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.end_headers()

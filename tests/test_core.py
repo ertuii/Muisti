@@ -66,8 +66,26 @@ def test_language():
     core._close()
 
 
+def test_review_more_menu():
+    core = Core(str(Path(tempfile.mkdtemp()) / "c.anki2"))
+    deck = core.create_deck("Mehr")
+    core.add_note("Basic", "Mehr", {"Front": "a", "Back": "b"}, [])
+    card = core.next_card(deck)
+    assert card["flag"] == 0 and card["home_deck_id"] == deck
+    core.flag([card["card_id"]], 3)
+    assert core.next_card(deck)["flag"] == 3
+    core.set_due_date([card["card_id"]], "3")
+    assert core.next_card(deck) is None  # a review card in 3 days
+    core.forget_cards([card["card_id"]])
+    assert core.next_card(deck)["card_id"] == card["card_id"]
+    core.answer(card["card_id"], 3)
+    info = core.card_info(card["card_id"])
+    assert info["deck"] == "Mehr" and info["reviews"] == 1 and info["revlog"][0]["button"] == 3
+
+
 if __name__ == "__main__":
     test_roundtrip()
     test_data_dir_moves_betteranki_folder()
     test_language()
+    test_review_more_menu()
     print("ok")

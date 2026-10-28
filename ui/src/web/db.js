@@ -45,10 +45,13 @@ async function idbDo(mode, fn) {
 let saveTimer
 function persist() {
   clearTimeout(saveTimer)
-  saveTimer = setTimeout(() => {
-    const snap = { usn, pending, tables: Object.fromEntries(TABLES.map((t) => [t, [...S[t].values()]])) }
-    idbDo('readwrite', (s) => s.put(snap, uid)).catch((e) => console.warn('cache', e))
-  }, 500)
+  saveTimer = setTimeout(save, 500)
+}
+/** Write the cache now, e.g. before a reload (the debounced one would be lost). */
+export function save() {
+  clearTimeout(saveTimer)
+  const snap = { usn, pending, tables: Object.fromEntries(TABLES.map((t) => [t, [...S[t].values()]])) }
+  return idbDo('readwrite', (s) => s.put(snap, uid)).catch((e) => console.warn('cache', e))
 }
 
 // ---------- loading and pulling ----------

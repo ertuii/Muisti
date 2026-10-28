@@ -171,8 +171,9 @@ def reset_cards(card_ids: list[int]) -> int:
 
 
 @mcp.tool()
-def card_info(card_id: int) -> str:
-    """Review history and scheduling details of a card (HTML)."""
+def card_info(card_id: int) -> dict:
+    """Review history and scheduling details of a card: dates in unix seconds (0 = not yet), ease in permille,
+    the review log newest first with intervals in seconds."""
     return call("card_info", card_id=card_id)
 
 

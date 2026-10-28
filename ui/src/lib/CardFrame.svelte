@@ -33,7 +33,9 @@
 <script>
   addEventListener('keydown', (e) => {
     if (e.target.id === 'typeans' && e.key !== 'Enter' && e.key !== 'Escape') return // typing, not shortcuts
-    parent.postMessage({ key: e.key, meta: e.metaKey || e.ctrlKey }, '*')
+    if (!e.metaKey && !e.ctrlKey && (e.key.length === 1 || e.key === 'Escape' || e.key === 'Enter')) e.preventDefault() // macOS beeps on unhandled keys
+    if ((e.metaKey || e.ctrlKey) && (/^[0-7]$/.test(e.key) || e.altKey || e.shiftKey)) e.preventDefault() // the reviewer's flag/menu shortcuts
+    parent.postMessage({ key: e.key, code: e.code, meta: e.metaKey || e.ctrlKey, alt: e.altKey, shift: e.shiftKey }, '*')
   })
   addEventListener('input', (e) => e.target.id === 'typeans' && parent.postMessage({ typed: e.target.value }, '*'))
   addEventListener('load', () => document.getElementById('answer')?.scrollIntoView())
@@ -89,7 +91,7 @@
     if (e.source !== frame?.contentWindow) return
     if (typeof e.data?.typed === 'string') return ontyped?.(e.data.typed)
     if (!onkey || typeof e.data?.key !== 'string') return
-    onkey({ key: e.data.key, metaKey: e.data.meta, ctrlKey: false, preventDefault() {} })
+    onkey({ key: e.data.key, code: e.data.code, metaKey: e.data.meta, ctrlKey: false, altKey: e.data.alt, shiftKey: e.data.shift, preventDefault() {} })
   }
 </script>
 

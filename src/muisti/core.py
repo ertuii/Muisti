@@ -611,6 +611,8 @@ class Core:
             "buttons": [_strip(x) for x in labels],  # interval labels for Again/Hard/Good/Easy
             "counts": {"new": queued.new_count, "learn": queued.learning_count, "review": queued.review_count},
             "queue": qc.queue,  # 0 new, 1 learning, 2 review
+            "flag": card.user_flag(),
+            "home_deck_id": card.odid or card.did,  # whose options apply (a filtered deck's cards keep their home preset)
             "study": study,
         }
 
@@ -1091,6 +1093,11 @@ class Core:
         return len(card_ids)
 
     @_locked
+    def set_due_date(self, card_ids: list[int], days: str) -> None:
+        """Anki's 'Set Due Date': "0" today, "3" in 3 days, "1-7" spread, "3!" also sets the interval. Undoable."""
+        self._col.sched.set_due_date(card_ids, days)
+
+    @_locked
     def reset_deck(self, deck_id: int) -> int:
         """Reset the study progress of a deck and its subdecks, including today's new/review counters,
         otherwise the reset cards stay hidden behind today's already used daily limit."""
@@ -1109,8 +1116,21 @@ class Core:
         self._col.set_deck(card_ids, deck_id)
 
     @_locked
-    def card_info(self, card_id: int) -> str:
-        return self._col.card_stats(card_id, include_revlog=True)
+    def card_info(self, card_id: int) -> dict:
+        """Anki's card info as data (its card_stats() HTML only loads Anki's own web page). Dates in unix
+        seconds, 0 = not yet; ease in permille; revlog newest first, intervals in seconds."""
+        st = self._col.card_stats_data(card_id)
+        info = {k: getattr(st, k) for k in (
+            "deck", "original_deck", "notetype", "card_type", "preset", "added", "first_review", "latest_review",
+            "due_date", "due_position", "interval", "ease", "reviews", "lapses", "average_secs", "total_secs")}
+        if st.HasField("memory_state"):
+            info |= {"stability": st.memory_state.stability, "difficulty": st.memory_state.difficulty}
+        if st.HasField("fsrs_retrievability"):
+            info["retrievability"] = st.fsrs_retrievability
+        # review_kind: 0 learn, 1 review, 2 relearn, 3 filtered, 4 manual, 5 rescheduled
+        info["revlog"] = [{"time": r.time, "kind": r.review_kind, "button": r.button_chosen, "interval": r.interval,
+                           "ease": r.ease, "secs": r.taken_secs} for r in st.revlog]
+        return info
 
     # ---------- stats ----------
 

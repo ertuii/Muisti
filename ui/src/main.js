@@ -36,5 +36,10 @@ if (import.meta.env.MODE === 'web') {
     mount(Login, { target })
   }
 } else {
+  // macOS: WKWebView beeps on every key the page leaves unhandled (shortcuts like 1–4 included)
+  addEventListener('keydown', (e) => {
+    const editable = /** @type {Element} */ (e.target).closest?.('input, textarea, select, [contenteditable]')
+    if (!editable && !e.metaKey && !e.ctrlKey && ((e.key.length === 1 && e.key !== ' ') || e.key === 'Escape')) e.preventDefault()
+  })
   await start()
 }

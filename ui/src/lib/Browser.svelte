@@ -1,7 +1,7 @@
 <script>
   import { untrack } from 'svelte'
   import { Search, Flag, X } from '@lucide/svelte'
-  import { api } from './api.js'
+  import { api, FLAG_COLORS } from './api.js'
   import Editor from './Editor.svelte'
   import { t, tmsg } from './i18n.js'
 
@@ -24,16 +24,7 @@
   let confirmDelete = $state(false)
   let loading = $state(false)
 
-  const FLAGS = [
-    { n: 0, label: 'Keine Markierung', color: 'var(--ink-3)' },
-    { n: 1, label: 'Rot', color: 'var(--m-red)' },
-    { n: 2, label: 'Orange', color: 'var(--m-ochre)' },
-    { n: 3, label: 'Grün', color: 'var(--m-green)' },
-    { n: 4, label: 'Blau', color: 'var(--m-blue)' },
-    { n: 5, label: 'Pink', color: 'var(--m-pink)' },
-    { n: 6, label: 'Türkis', color: 'var(--m-teal)' },
-    { n: 7, label: 'Violett', color: 'var(--m-violet)' },
-  ].map((f) => ({ ...f, label: t(f.label) }))
+  const FLAGS = FLAG_COLORS.map((f) => ({ ...f, label: t(f.label) }))
 
   const STATUS = [
     { q: '', label: 'Alle Karten' },

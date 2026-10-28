@@ -29,7 +29,7 @@ from muisti.core import Core  # noqa: E402
 
 # what the web may run here; studying, desktop settings, AnkiWeb and updates never
 ALLOWED = {
-    "statistics", "weak_spots", "difficult_cards", "card_info",
+    "statistics", "weak_spots", "difficult_cards", "card_info", "set_due_date",
     "deck_options", "save_deck_options", "new_preset", "optimize_fsrs",
     "create_filtered_deck", "rebuild_filtered_deck", "empty_filtered_deck", "prelearn", "end_prelearn", "practice",
     "notetype", "save_notetype", "add_notetype", "delete_notetype", "preview_template", "note_types",

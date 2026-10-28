@@ -2,7 +2,7 @@
 // work unchanged. Data lives in db.js (Supabase rows mirrored in memory). Everything frequent runs here;
 // rarer actions that need Anki's own engine (statistics, deck options, note types, import/export, …) go to the
 // worker (web-api/worker.py), which runs core.py itself: api.js sends every method this file lacks there.
-import { S, write, pull, flush, sb, mediaUrls, uploadMedia, unsynced, userId } from './db.js'
+import { S, write, pull, flush, save, sb, mediaUrls, uploadMedia, unsynced, userId } from './db.js'
 import { renderCard, stripHtml, clozeNumbers, clozeTexts, compareAnswer } from './render.js'
 import { timing, limits, queue, newOrderFor, outcomes, label, revlogFor, isLeech } from './sched.js'
 import { search as runSearch } from './search.js'
@@ -194,7 +194,7 @@ export async function next_card(deck_id) {
     card_id: card.id, note_id: card.nid, ord: card.ord,
     question: await withUrls(question), answer: await withUrls(answer), type_answer: !!typed, css: r.css,
     buttons: results.map((x) => label(x.secs, x.learning, (s, { n }) => tr(s, { n: n.toLocaleString(lang) }))),
-    counts: q.counts, queue: card.queue === 3 ? 1 : card.queue, study: opts,
+    counts: q.counts, queue: card.queue === 3 ? 1 : card.queue, flag: card.flags & 7, home_deck_id: card.odid || card.did, study: opts,
   }
 }
 
@@ -525,7 +525,7 @@ export function save_features(f) {
 export const theme = () => cfg('betteranki.theme', 'system')
 export const set_theme = (v) => setCfg('betteranki.theme', v)
 export const language = () => cfg('betteranki.lang', null)
-export const set_language = (v) => setCfg('betteranki.lang', v)
+export const set_language = (v) => (setCfg('betteranki.lang', v), save()) // Settings reloads right after
 
 const PREFS = { // Anki's preferences ↔ collection config keys
   scheduling: { rollover: ['rollover', 4], learn_ahead_secs: ['collapseTime', 1200], day_learn_first: ['dayLearnFirst', false] },
