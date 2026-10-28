@@ -174,10 +174,13 @@ def _upsert(token: str, table: str, rows: list[dict], ignore: bool = False):
               {"Prefer": f"resolution={'ignore' if ignore else 'merge'}-duplicates,return=minimal"})
 
 
-def _pull(token: str, table: str, since: int, device: str) -> list[dict]:
+def _pull(token: str, table: str, since: int, top: int, device: str) -> list[dict]:
+    """Rows with since < usn <= top. top is sync_state's usn read before: everything up to it is committed, so the
+    tables, pulled at slightly different moments, all end at the same point and a later pull misses nothing."""
     out, after = [], since
     while True:
-        q = urllib.parse.urlencode({"usn": f"gt.{after}", "device": f"neq.{device}", "order": "usn", "limit": PAGE})
+        q = urllib.parse.urlencode([("usn", f"gt.{after}"), ("usn", f"lte.{top}"), ("device", f"neq.{device}"),
+                                    ("order", "usn"), ("limit", PAGE)])
         page = _http("GET", f"/rest/v1/{table}?{q}", token=token)
         out += page
         if len(page) < PAGE:
@@ -391,23 +394,24 @@ def sync(col, account: Account, pull: bool = True) -> dict:
     # a collection replaced since the last sync (Anki migration, .colpkg import, backup, AnkiWeb download) keeps
     # its old usns and would never be sent: pull everything again and send everything (the newer side wins)
     relink = not first and col.get_config(LINKED, None) != d["user_id"]
-    since = 0 if relink else d.get("last_usn") or 0
+    # pull_v 2: up to 0.14.1 the tables could skip rows (see _pull); such an account pulls everything once more
+    since = 0 if relink or d.get("pull_v") != 2 else d.get("last_usn") or 0
     from concurrent.futures import ThreadPoolExecutor
 
-    with ThreadPoolExecutor(len(TABLES) + 1) as pool:  # the schema check and one request per table, all at once
-        state = pool.submit(_http, "GET", "/rest/v1/sync_state?select=usn,schema", token=token)
-        mine = "" if relink else d["device"]  # relink: our own earlier rows too (_crt above all)
-        pulled = dict(zip(TABLES, pool.map(lambda t: _pull(token, t, since, mine), TABLES)))
-        state = state.result()
+    state = _http("GET", "/rest/v1/sync_state?select=usn,schema", token=token)  # first: the pulls end at its usn
     if state and state[0]["schema"] > SCHEMA:
         raise CloudError("Bitte aktualisiere Muisti, um mit deinem Konto zu synchronisieren.")
+    top = state[0]["usn"] if state else 0
+    with ThreadPoolExecutor(len(TABLES)) as pool:  # one request per table, all at once
+        mine = "" if relink else d["device"]  # relink: our own earlier rows too (_crt above all)
+        pulled = dict(zip(TABLES, pool.map(lambda t: _pull(token, t, since, top, mine), TABLES)))
     if first or relink:  # everything here is new to the account; what the pull brings in is marked as synced
         for t in LOCAL_TABLES:
             col.db.execute(f"update {t} set usn = -1")
     received = _apply(col, pulled, first)
     sent = _push(col, token, d["device"], crt=first and not any(r["key"] == "_crt" for r in pulled["config"]))
-    # not the newest usn online: another device may have written since, and our own rows are skipped anyway
-    account.set(last_usn=max([since] + [r["usn"] for rows in pulled.values() for r in rows]))
+    # top, not the newest usn online: another device may have written since; our own rows above it are skipped anyway
+    account.set(last_usn=max(since, top), pull_v=2)
     if col.get_config(LINKED, None) != d["user_id"]:
         col.set_config(LINKED, d["user_id"])  # stays local: _push leaves this key out
     return {"sent": sent, "received": received}

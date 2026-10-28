@@ -15,6 +15,15 @@ from anki.collection import Collection  # noqa: E402
 
 from muisti import cloud  # noqa: E402
 
+# offline: a pull pages up to the given top and no further (rows above it come with the next pull)
+_real_http, _page, seen = cloud._http, cloud.PAGE, []
+pages = [[{"usn": 1}, {"usn": 2}], [{"usn": 3}]]
+cloud._http = lambda method, path, *a, **k: seen.append(path) or pages.pop(0)
+cloud.PAGE = 2
+assert len(cloud._pull("t", "notes", 0, 3, "me")) == 3 and all("usn=lte.3" in p for p in seen), seen
+assert "usn=gt.2" in seen[1], seen  # the second page continues after the first
+cloud._http, cloud.PAGE = _real_http, _page
+
 EMAIL, PASSWORD = os.environ.get("MUISTI_TEST_EMAIL"), os.environ.get("MUISTI_TEST_PASSWORD")
 if not EMAIL:
     print("test_cloud: skipped (MUISTI_TEST_EMAIL not set)")

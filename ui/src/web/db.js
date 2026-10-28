@@ -50,7 +50,7 @@ function persist() {
 /** Write the cache now, e.g. before a reload (the debounced one would be lost). */
 export function save() {
   clearTimeout(saveTimer)
-  const snap = { usn, pending, tables: Object.fromEntries(TABLES.map((t) => [t, [...S[t].values()]])) }
+  const snap = { v: 2, usn, pending, tables: Object.fromEntries(TABLES.map((t) => [t, [...S[t].values()]])) }
   return idbDo('readwrite', (s) => s.put(snap, uid)).catch((e) => console.warn('cache', e))
 }
 
@@ -68,9 +68,10 @@ export async function open(userId) {
   pending = []
   try {
     const snap = await idbDo('readonly', (s) => s.get(uid))
-    if (snap) {
+    if (snap) pending = snap.pending
+    // v 2: caches of 0.14.1 and older can miss rows (the pull could skip some), they load everything again
+    if (snap?.v === 2) {
       usn = snap.usn
-      pending = snap.pending
       for (const t of TABLES) for (const r of snap.tables[t]) take(t, r)
     }
   } catch (e) {
@@ -83,20 +84,26 @@ export async function open(userId) {
 /** Everything other devices wrote since the last pull. Returns the number of rows that came in. */
 export async function pull() {
   await flush()
-  let n = 0, max = usn
+  // first the account's newest usn: everything up to it is committed (see supabase/migrations), so all tables,
+  // fetched at slightly different moments, end at the same point and the next pull misses nothing
+  const { data: st, error: e } = await sb.from('sync_state').select('usn').maybeSingle()
+  if (e) throw new Error(e.message)
+  const top = st?.usn ?? 0
+  if (top <= usn) return 0
+  let n = 0
   const fetched = await Promise.all(TABLES.map(async (t) => { // one request per table, all at once
     const rows = []
     for (let after = usn; ;) {
-      const { data, error } = await sb.from(t).select('*').gt('usn', after).neq('device', device).order('usn').limit(1000)
+      const { data, error } = await sb.from(t).select('*').gt('usn', after).lte('usn', top).neq('device', device).order('usn').limit(1000)
       if (error) throw new Error(error.message)
       rows.push(...data)
-      if (data.length) max = Math.max(max, (after = data[data.length - 1].usn)) // this table's position, not the overall max
+      if (data.length) after = data[data.length - 1].usn
       if (data.length < 1000) return rows
     }
   }))
   TABLES.forEach((t, i) => { for (const r of fetched[i]) take(t, r); n += fetched[i].length }) // in TABLES order, note types before notes
-  usn = max
-  if (n) persist()
+  usn = top
+  persist()
   return n
 }
 
