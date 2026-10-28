@@ -220,7 +220,8 @@
   next()
 </script>
 
-<svelte:window onkeydown={onKey} onclick={(e) => !(e.target instanceof Element && e.target.closest('.menu-wrap')) && (menu = confirmReset = false)} />
+<!-- composedPath: the clicked item may already be gone from the DOM (e.g. "set due date" swaps itself for the field) -->
+<svelte:window onkeydown={onKey} onclick={(e) => !e.composedPath().some((el) => el instanceof Element && el.matches('.menu-wrap')) && (menu = confirmReset = false)} />
 
 <div class="study">
   <header>
