@@ -1,5 +1,5 @@
 <script>
-  import { Copy } from '@lucide/svelte'
+  import { Copy, Keyboard } from '@lucide/svelte'
   import { api, web } from './api.js'
   import AnkiMigration from './AnkiMigration.svelte'
   import { applyTheme } from './theme.js'
@@ -34,6 +34,43 @@
   let version = $state('')
   let theme = $state('system')
   api.theme().then((t) => (theme = t))
+  // same keys as the onKey handlers in Study, Today, Editor, IOEditor and Browser
+  const KEYS = [
+    [t('Lernen'), [
+      [[t('Leertaste'), '↵'], t('Antwort zeigen, danach „Gut“')],
+      [['1', '2', '3', '4'], [t('Nochmal'), t('Schwer'), t('Gut'), t('Einfach')].join(', ')],
+      [['E'], t('Notiz bearbeiten')],
+      [['-'], t('Bis morgen zurückstellen')],
+      [['@'], t('Karte aussetzen')],
+      [['!'], t('Notiz aussetzen')],
+      [['A'], t('Automatisch weiter')],
+      [['O'], t('Stapel-Optionen')],
+      [['I'], t('Kartenstatistik')],
+      [['⌥⌘I'], t('Vorherige Kartenstatistik')],
+      [['⌘1', '…', '⌘7'], t('Markierung setzen')],
+      [['⌘0'], t('Keine Markierung')],
+      [['⇧⌘D'], t('Fälligkeitsdatum setzen …')],
+      [['⌥⌘N'], t('Lernfortschritt zurücksetzen …')],
+      [['⌘Z'], t('Letzte Antwort rückgängig')],
+      [['Esc'], t('Zurück zur Übersicht')],
+    ]],
+    [t('Heute'), [
+      [[t('Leertaste')], t('Nächsten fälligen Stapel lernen')],
+      [['A'], t('Karten hinzufügen')],
+    ]],
+    [t('Editor'), [
+      [['⌘↵'], t('Speichern bzw. hinzufügen')],
+      [['⌘⇧C'], t('Markierten Text zur Lücke machen')],
+      [['⌘V'], t('Bild einfügen')],
+      [['⌫'], t('Bild-Verdeckung') + ': ' + t('ausgewählten Bereich löschen')],
+      [['Esc'], t('Schließen')],
+    ]],
+    [t('Browser'), [
+      [['⌘A'], t('Alle Karten auswählen')],
+      [['⌘', t('Klick')], t('Mehrere Karten auswählen')],
+    ]],
+  ]
+  let keysDialog = $state()
   const THEMES = [{ v: 'system', label: t('Wie System') }, { v: 'light', label: t('Hell') }, { v: 'dark', label: t('Dunkel') }]
 
   // every string is picked once per page load (i18n.js): save, then reload
@@ -314,7 +351,28 @@
 </script>
 
 <div class="settings">
-  <h1>{t('Einstellungen')}</h1>
+  <header class="head">
+    <h1>{t('Einstellungen')}</h1>
+    <button class="ghost sm keys-btn" onclick={() => keysDialog.showModal()}><Keyboard size={15} />{t('Tastenkürzel')}</button>
+  </header>
+
+  <dialog bind:this={keysDialog} class="keys" aria-label={t('Tastenkürzel')} onclick={(e) => e.target === keysDialog && keysDialog.close()}
+    onkeydown={(e) => e.key === 'Escape' && keysDialog.close()}>
+    <div class="keys-head"><h2>{t('Tastenkürzel')}</h2><button class="ghost sm" onclick={() => keysDialog.close()}>{t('Schließen')}</button></div>
+    <p class="muted small">{t('Unter Windows steht Strg für ⌘.')}</p>
+    <div class="keys-grid">
+      {#each KEYS as [title, rows]}
+        <div>
+          <h3>{title}</h3>
+          <dl>
+            {#each rows as [combo, label]}
+              <div><dt>{#each combo as k}{#if k === '…' || k === t('Klick')}{k}{:else}<kbd>{k}</kbd>{/if}{/each}</dt><dd>{label}</dd></div>
+            {/each}
+          </dl>
+        </div>
+      {/each}
+    </div>
+  </dialog>
 
   <section>
     <h2>{t('Darstellung')}</h2>
@@ -609,6 +667,22 @@
 
 <style>
   .settings { padding: 32px 40px 56px; max-width: 820px; display: flex; flex-direction: column; gap: 28px; }
+  .head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .keys-btn { display: inline-flex; align-items: center; gap: 6px; }
+  dialog.keys {
+    width: min(760px, calc(100% - 32px)); max-height: calc(100% - 48px); border: 0; border-radius: 14px; padding: 22px 24px;
+    background: var(--paper); color: var(--ink); box-shadow: 0 20px 60px rgb(0 0 0 / 0.25);
+  }
+  dialog.keys::backdrop { background: rgb(0 0 0 / 0.32); }
+  .keys-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .keys-head h2 { font-size: 20px; font-weight: 750; }
+  .keys-grid { columns: 2; column-gap: 32px; margin-top: 4px; }
+  .keys-grid > div { break-inside: avoid; padding-top: 8px; }
+  .keys h3 { font-size: 14px; font-weight: 700; padding: 10px 0 6px; border-bottom: 1px solid var(--ink); }
+  .keys dl { margin: 0; }
+  .keys dl div { display: grid; grid-template-columns: 110px 1fr; gap: 12px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--rule); font-size: 13px; }
+  .keys dt { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; color: var(--ink-2); }
+  .keys dd { margin: 0; }
   h1 { font-size: 26px; font-weight: 750; letter-spacing: -0.02em; }
   section { display: flex; flex-direction: column; gap: 12px; padding-top: 20px; border-top: 1px solid var(--rule); }
   h2 { font-size: 16px; font-weight: 700; }
@@ -646,5 +720,6 @@
   .state.outdated { background: var(--warn-bg); color: var(--warn-ink); }
   details summary { cursor: pointer; margin-bottom: 8px; }
   .choice b { overflow-wrap: anywhere; }
+  @media (hover: none), (max-width: 720px) { .keys-btn { display: none; } }
   @media (max-width: 720px) { .settings { padding: 20px 16px 40px; gap: 20px; } .row span { overflow-wrap: anywhere; } }
 </style>

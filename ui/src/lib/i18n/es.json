@@ -733,5 +733,17 @@
  "Tage mit weniger Wiederholungen": "Días ligeros",
  "An diesen Tagen werden weniger Wiederholungen eingeplant, dafür an den anderen etwas mehr.": "Estos días se programan menos repasos y algunos más en los demás.",
  "Minimum": "Mínimo",
- "Reduziert": "Reducido"
+ "Reduziert": "Reducido",
+ "Tastenkürzel": "Atajos de teclado",
+ "Antwort zeigen, danach „Gut“": "Mostrar respuesta, luego «Bien»",
+ "Zurück zur Übersicht": "Volver al resumen",
+ "Nächsten fälligen Stapel lernen": "Estudiar el siguiente mazo pendiente",
+ "Editor": "Editor",
+ "Speichern bzw. hinzufügen": "Guardar o añadir",
+ "Bild einfügen": "Pegar imagen",
+ "ausgewählten Bereich löschen": "eliminar el área seleccionada",
+ "Alle Karten auswählen": "Seleccionar todas las tarjetas",
+ "Klick": "clic",
+ "Mehrere Karten auswählen": "Seleccionar varias tarjetas",
+ "Unter Windows steht Strg für ⌘.": "En Windows, usa Ctrl en lugar de ⌘."
 }

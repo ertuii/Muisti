@@ -733,5 +733,17 @@
  "Tage mit weniger Wiederholungen": "Easy days",
  "An diesen Tagen werden weniger Wiederholungen eingeplant, dafür an den anderen etwas mehr.": "Fewer reviews are scheduled on these days, and a few more on the others.",
  "Minimum": "Minimum",
- "Reduziert": "Reduced"
+ "Reduziert": "Reduced",
+ "Tastenkürzel": "Keyboard shortcuts",
+ "Antwort zeigen, danach „Gut“": "Show answer, then “Good”",
+ "Zurück zur Übersicht": "Back to overview",
+ "Nächsten fälligen Stapel lernen": "Study the next due deck",
+ "Editor": "Editor",
+ "Speichern bzw. hinzufügen": "Save or add",
+ "Bild einfügen": "Paste image",
+ "ausgewählten Bereich löschen": "delete selected area",
+ "Alle Karten auswählen": "Select all cards",
+ "Klick": "click",
+ "Mehrere Karten auswählen": "Select several cards",
+ "Unter Windows steht Strg für ⌘.": "On Windows, use Ctrl for ⌘."
 }
