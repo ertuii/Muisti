@@ -26,7 +26,7 @@
 
   const SM2 = (x) => !x.fsrs
   const FSRS = (x) => x.fsrs
-  const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7].map((d) => new Date(2024, 0, d).toLocaleDateString(lang, { weekday: 'long' })) // 1 Jan 2024: a Monday
+  const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7].map((d) => new Date(2024, 0, d).toLocaleDateString(lang, { weekday: 'short' })) // 1 Jan 2024: a Monday
 
   // Every option of an Anki preset, grouped like Anki's own options screen.
   const SECTIONS = [
@@ -88,9 +88,30 @@
     ] },
   ]
 
+  // Daily limits like Anki: the preset's value, this deck's own, or one for today only; the highest one set applies.
+  const LIMITS = { new: ['new_per_day', 'new', 'new_today'], review: ['reviews_per_day', 'review', 'review_today'] }
+  const SCOPES = ['Vorgabe', 'Dieser Stapel', 'Nur heute']
+  let scope = $state({ new: 0, review: 0 })
+  const limitAt = (kind, i) => (i ? o.limits[LIMITS[kind][i]] : o[LIMITS[kind][0]])
+  function shownLimit(kind) {
+    for (let i = scope[kind]; i >= 0; i--) if (limitAt(kind, i) != null) return limitAt(kind, i)
+  }
+  function setScope(kind, i) {
+    const v = shownLimit(kind)
+    for (let j = i + 1; j < 3; j++) o.limits[LIMITS[kind][j]] = null // a lower tab drops the ones above it
+    if (i && o.limits[LIMITS[kind][i]] == null) o.limits[LIMITS[kind][i]] = v
+    scope[kind] = i
+  }
+  function setLimit(kind, value) {
+    const i = scope[kind], k = LIMITS[kind][i]
+    if (i) o.limits[k] = value === '' ? null : Number(value)
+    else o[k] = Number(value) || 0
+  }
+
   async function load(presetId) {
     o = await api.deck_options(deckId, presetId ?? null)
     steps = { learn_steps: fmtSteps(o.learn_steps), relearn_steps: fmtSteps(o.relearn_steps) }
+    for (const kind in LIMITS) scope[kind] = o.limits[LIMITS[kind][2]] != null ? 2 : o.limits[LIMITS[kind][1]] != null ? 1 : 0
   }
 
   async function save() {
@@ -135,11 +156,20 @@
     }
   }
 
-  // Deck-only limits: empty = use the preset's value.
-  const limitInput = (k) => (e) => (o.limits[k] = e.currentTarget.value === '' ? null : Number(e.currentTarget.value))
-
   load()
 </script>
+
+{#snippet limit(kind, label)}
+  <div class="opt">
+    <span class="lbl">{t(label)}</span>
+    <div class="tabs" role="group" aria-label={t(label)}>
+      {#each SCOPES as name, i}
+        <button class:on={scope[kind] === i} aria-pressed={scope[kind] === i} onclick={() => setScope(kind, i)}>{t(name)}</button>
+      {/each}
+    </div>
+    <input type="number" min="0" aria-label={t(label)} value={shownLimit(kind) ?? ''} oninput={(e) => setLimit(kind, e.currentTarget.value)} />
+  </div>
+{/snippet}
 
 {#snippet field(f)}
   {#if !f.show || f.show(o)}
@@ -193,12 +223,10 @@
     <section>
       <h2>{t('Tageslimits')}</h2>
       <div class="fields">
-        <label>{t('Neue Karten pro Tag')}<input type="number" min="0" placeholder={String(o.new_per_day)} value={o.limits.new ?? ''} oninput={limitInput('new')} /></label>
-        <label>{t('Wiederholungen pro Tag')}<input type="number" min="0" placeholder={String(o.reviews_per_day)} value={o.limits.review ?? ''} oninput={limitInput('review')} /></label>
-        <label>{t('Nur heute: neue Karten')}<input type="number" min="0" placeholder={t('wie sonst')} value={o.limits.new_today ?? ''} oninput={limitInput('new_today')} /></label>
-        <label>{t('Nur heute: Wiederholungen')}<input type="number" min="0" placeholder={t('wie sonst')} value={o.limits.review_today ?? ''} oninput={limitInput('review_today')} /></label>
+        {@render limit('new', 'Neue Karten pro Tag')}
+        {@render limit('review', 'Wiederholungen pro Tag')}
       </div>
-      <p class="muted">{t('Gilt nur für diesen Stapel. Leer = {n} neue / {r} Wiederholungen aus der Voreinstellung.', { n: o.new_per_day, r: o.reviews_per_day })}</p>
+      <p class="muted">{t('„Vorgabe“ gilt für alle Stapel dieser Voreinstellung, „Dieser Stapel“ nur hier, „Nur heute“ bis morgen.')}</p>
       <div class="checks">
         {#if o.subdecks}
           <label class="check"><input type="checkbox" bind:checked={toSubdecks} />{t('Auch für alle {n} Unterstapel übernehmen', { n: o.subdecks })}</label>
@@ -241,21 +269,18 @@
       </section>
     {/each}
 
-    {#if o.fsrs}
-      <section>
-        <h2>{t('Leichte Tage')}</h2>
-        <p class="muted">{t('An diesen Tagen plant FSRS weniger Wiederholungen ein.')}</p>
-        <div class="fields">
-          {#each WEEKDAYS as day, i}
-            <label>{day}
-              <select bind:value={o.easy_days_percentages[i]}>
-                <option value={1}>{t('Normal')}</option><option value={0.5}>{t('Weniger')}</option><option value={0}>{t('Möglichst keine')}</option>
-              </select>
-            </label>
-          {/each}
-        </div>
-      </section>
-    {/if}
+    <section>
+      <h2>{t('Tage mit weniger Wiederholungen')}</h2>
+      <p class="muted">{t('An diesen Tagen werden weniger Wiederholungen eingeplant, dafür an den anderen etwas mehr.')}</p>
+      <div class="easy">
+        <span></span><span class="scale"><small>{t('Minimum')}</small><small>{t('Reduziert')}</small><small>{t('Normal')}</small></span>
+        {#each WEEKDAYS as day, i}
+          <span class="day">{day}</span>
+          <input type="range" min="0" max="1" step="0.01" list="easy-ticks" aria-label={day} bind:value={o.easy_days_percentages[i]} />
+        {/each}
+      </div>
+      <datalist id="easy-ticks"><option value="0.5"></option></datalist>
+    </section>
 
     <div class="bar">
       <button class="ghost" onclick={onBack}>{t('Abbrechen')}</button>
@@ -290,6 +315,13 @@
   .range { display: flex; align-items: center; gap: 12px; }
   .range input { flex: 1; accent-color: var(--ink); height: auto; border: 0; padding: 0; }
   .range b { color: var(--ink); width: 44px; }
+  .tabs { display: flex; gap: 2px; }
+  .tabs button { flex: 1; height: auto; padding: 4px 6px; font-size: 12px; font-weight: 500; background: none; color: var(--ink-3); border: 0; border-bottom: 2px solid transparent; border-radius: 0; }
+  .tabs button.on { color: var(--ink); border-bottom-color: var(--ink); }
+  .easy { display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 10px 12px; }
+  .scale { display: flex; justify-content: space-between; }
+  .day { font-size: 13px; color: var(--ink-2); }
+  .easy input { accent-color: var(--ink); height: auto; border: 0; padding: 0; }
   .bar { display: flex; justify-content: flex-end; gap: 8px; position: sticky; bottom: 0; padding: 16px 0; background: var(--paper); border-top: 1px solid var(--rule); }
   @media (max-width: 860px) {
     .opts { padding: 12px 16px 0; gap: 22px; }
