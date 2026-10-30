@@ -8,7 +8,7 @@
 
   // temporary: a pre-learn/practice deck, removed again when the session ends
   // plan: the study plan across all decks (nearest exam first) for `minutes`
-  let { deckId, deckName, flat, notify, onExit, onOptions, temporary = false, plan = false, minutes = 0 } = $props()
+  let { deckId, deckName, flat, notify, onExit, onOptions, temporary = false, practice = false, plan = false, minutes = 0 } = $props()
 
   let card = $state(null)
   let done = $state(false)
@@ -284,7 +284,7 @@
         <p class="muted">{t(answered === 1 ? '{n} Karte in {m} Minuten.' : '{n} Karten in {m} Minuten.', { n: answered, m: Math.max(1, Math.round((Date.now() - sessionStart) / 60000)) })} {timeUp ? t('Was noch fällig ist, kannst du später oder morgen lernen.') : t('In keinem Stapel ist gerade noch etwas fällig.')}</p>
       {:else}
         <h1>{temporary ? t('Geschafft.') : t('Fertig für heute.')}</h1>
-        <p class="muted">{temporary ? t('Die Karten sind neu eingeplant. Lernkarten, die noch offen sind, kehren in ihre Stapel zurück.') : t('In „{name}“ ist gerade nichts mehr fällig. Lernkarten kommen nach ihrer Lernstufe zurück.', { name: deckName })}</p>
+        <p class="muted">{practice ? t('Geübt: Fälligkeiten und Lernstand deiner Karten bleiben unverändert.') : temporary ? t('Die Karten sind neu eingeplant. Lernkarten, die noch offen sind, kehren in ihre Stapel zurück.') : t('In „{name}“ ist gerade nichts mehr fällig. Lernkarten kommen nach ihrer Lernstufe zurück.', { name: deckName })}</p>
       {/if}
       <div class="row">
         <button onclick={exit}>{t('Zur Übersicht')}</button>

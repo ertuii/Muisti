@@ -42,7 +42,7 @@ export function limits(deck, conf, today) {
 export function queue(cards, limitsOf, t, learnAhead = 1200, newOrder = newOrderFor(2)) {
   const lrnNow = [], lrnLater = [], rev = [], fresh = []
   for (const c of cards) {
-    if (c.queue === 1) (c.due <= t.now ? lrnNow : c.due <= t.now + learnAhead ? lrnLater : null)?.push(c)
+    if (c.queue === 1 || c.queue === 4) (c.due <= t.now ? lrnNow : c.due <= t.now + learnAhead ? lrnLater : null)?.push(c)
     else if ((c.queue === 2 || c.queue === 3) && c.due <= t.today) rev.push(c)
     else if (c.queue === 0) fresh.push(c)
   }
@@ -106,6 +106,7 @@ const dueDay = (card) => card.odue || card.due
 
 /** The four possible outcomes (Again … Easy) of answering `card`; each is {card, revlog, secs}. */
 export function outcomes(card, conf, deck, t, useFsrs) {
+  if (deck.dyn && deck.resched === false) return previewOutcomes(card, deck, t)
   const data = JSON.parse(card.data || '{}')
   if (useFsrs && (card.type === 0 || data.s)) return fsrsOutcomes(card, data, conf, deck, t)
   return [1, 2, 3, 4].map((ease) => {
@@ -113,6 +114,17 @@ export function outcomes(card, conf, deck, t, useFsrs) {
     res.card.data = JSON.stringify({ ...data, lrt: Math.round(t.now) }) // Anki keeps the last review time for every card
     return res
   })
+}
+
+/** A filtered deck that doesn't reschedule (Anki's preview): Again/Hard repeat, Good/Easy send the card home untouched. */
+function previewOutcomes(card, deck, t) {
+  const repeat = (secs) => ({ card: { ...card, queue: 4, due: Math.round(t.now + secs) }, secs, learning: true, preview: true })
+  const home = () => {
+    const due = dueDay(card)
+    const queue = card.type === 0 ? 0 : card.type === 2 ? 2 : due > 1e9 ? 1 : 3
+    return { card: { ...card, did: card.odid, odid: 0, odue: 0, due, queue }, secs: 0, learning: false, preview: true, end: true }
+  }
+  return [repeat(deck.previewAgainSecs ?? 60), repeat(deck.previewHardSecs ?? 600), home(), home()]
 }
 
 /**
@@ -236,7 +248,7 @@ const round = (x) => Math.round(x * 10000) / 10000
 
 /** The revlog row for an answer (Anki's columns; ivl negative = seconds in learning). */
 export function revlogFor(before, res, ease, ms, now = Date.now()) {
-  const ivlOf = (c, secs) => (c.queue === 1 ? -Math.round(secs) : c.ivl)
+  const ivlOf = (c, secs) => (res.end ? 0 : c.queue === 1 || c.queue === 4 ? -Math.round(secs) : c.ivl)
   return {
     id: now, cid: before.id, ease, ivl: ivlOf(res.card, res.secs),
     last_ivl: before.type === 2 ? before.ivl : before.queue === 1 ? -Math.max(0, before.due - Math.round(now / 1000)) : 0,

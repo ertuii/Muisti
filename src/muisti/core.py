@@ -706,7 +706,7 @@ class Core:
     _PRELEARN = "Vorlernen"
     _TEMP = ("Vorlernen", "Üben:")  # temporary filtered decks, removed when their session ends
 
-    def _temp_deck(self, name: str, search: str, order: int = 6) -> int:
+    def _temp_deck(self, name: str, search: str, order: int = 6, resched: bool = True) -> int:
         """A filtered deck for one session; previous ones of any temporary kind are removed first."""
         for d in self._col.decks.all_names_and_ids():
             if d.name.startswith(self._TEMP) and self._col.decks.is_filtered(d.id):
@@ -714,7 +714,7 @@ class Core:
         did = self._col.decks.new_filtered(name)
         d = self._col.decks.get(did)
         d["terms"] = [[search, 9999, order]]
-        d["resched"] = True
+        d["resched"] = resched
         self._col.decks.save(d)
         if not self._col.sched.rebuild_filtered_deck(did).count:
             self._col.decks.remove([did])
@@ -892,7 +892,7 @@ class Core:
         scope = f'"tag:{escaped}"' if kind == "tag" else f'"deck:{escaped}"'
         wrong = " OR ".join(f"rated:{days}:{e}" for e in range(1, self._fail_ease() + 1))
         title = f"Üben: {name.split('::')[-1]}"
-        did = self._temp_deck(title, f"{scope} -is:suspended -is:new ({wrong} OR prop:lapses>=2)", 4)  # 4 = most lapses
+        did = self._temp_deck(title, f"{scope} -is:suspended -is:new ({wrong} OR prop:lapses>=2)", 4, resched=False)  # 4 = most lapses; practice leaves the schedule alone
         if not did:
             raise ValueError("Keine vergessenen Karten zum Üben gefunden.")
         return {"deck_id": did, "name": title, "count": len(self._col.decks.cids(did))}

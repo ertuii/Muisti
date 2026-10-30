@@ -65,6 +65,12 @@ core.save_features({"hard_wrong": False})
 assert core.weak_spots()["overall"] > 50
 p = core.practice("tag", "zelle", 365)  # the period the statistics show
 assert p["count"] == 20
+n = core.next_card(p["deck_id"])  # practice leaves the schedule alone
+before = col.db.first("select due, ivl, lapses, reps from cards where id = ?", n["card_id"])
+due = col.get_card(n["card_id"]).odue
+core.answer(n["card_id"], 3)
+c = col.get_card(n["card_id"])
+assert (c.due, c.ivl, c.lapses, c.reps, c.odid) == (due, before[1], before[2], before[3], 0)
 core.end_prelearn(p["deck_id"])
 
 # 5. difficult cards

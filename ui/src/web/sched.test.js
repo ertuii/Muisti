@@ -105,3 +105,15 @@ test('review in a filtered deck: the real due day counts, not the position (valu
   assert.ok(Math.abs(early[1].card.ivl - 18) <= 1, String(early[1].card.ivl))
   assert.ok(Math.abs(early[2].card.ivl - 30) <= 2, String(early[2].card.ivl))
 })
+
+test('filtered deck without rescheduling: Again/Hard repeat, Good/Easy go home unchanged (as Anki)', () => {
+  const card = { ...newCard, type: 2, queue: 2, ivl: 30, factor: 2500, reps: 5, lapses: 3, due: -100000, odue: 120, did: 9, odid: 7 }
+  const [again, hard, good, easy] = outcomes(card, conf, { ...deck, dyn: 1, resched: false, previewAgainSecs: 60, previewHardSecs: 600 }, t, false)
+  assert.deepEqual([again.card.queue, again.card.due - t.now, hard.card.due - t.now], [4, 60, 600])
+  for (const r of [again, hard, good, easy]) assert.deepEqual([r.card.ivl, r.card.factor, r.card.lapses, r.card.reps], [30, 2500, 3, 5])
+  assert.deepEqual([good.card.did, good.card.odid, good.card.odue, good.card.due, good.card.queue], [7, 0, 0, 120, 2])
+  assert.equal(revlogFor(card, again, 1, 1000).ivl, -60)
+  assert.equal(revlogFor(card, good, 3, 1000).ivl, 0)
+  const q = queue([{ ...card, queue: 4, due: t.now - 1 }], () => [], t)
+  assert.equal(q.counts.learn, 1)
+})

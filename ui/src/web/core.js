@@ -194,8 +194,8 @@ export async function next_card(deck_id) {
   return {
     card_id: card.id, note_id: card.nid, ord: card.ord,
     question: await withUrls(question), answer: await withUrls(answer), type_answer: !!typed, css: r.css,
-    buttons: results.map((x) => label(x.secs, x.learning, (s, { n }) => tr(s, { n: n.toLocaleString(lang) }))),
-    counts: q.counts, queue: card.queue === 3 ? 1 : card.queue, flag: card.flags & 7, home_deck_id: card.odid || card.did, study: opts,
+    buttons: results.map((x) => (x.end ? tr('(Ende)') : label(x.secs, x.learning, (s, { n }) => tr(s, { n: n.toLocaleString(lang) })))),
+    counts: q.counts, queue: card.queue === 3 || card.queue === 4 ? 1 : card.queue, flag: card.flags & 7, home_deck_id: card.odid || card.did, study: opts,
   }
 }
 
@@ -220,12 +220,12 @@ export function answer(card_id, ease) {
   if (card.queue === 2 && before.odid) Object.assign(card, { did: before.odid, odid: 0, odue: 0 }) // done in a filtered deck: home again
   const note = S.notes.get(before.nid)
   let noteAfter = null
-  if (ease === 1 && card.type === 3 && isLeech(card, conf)) { // Anki: tag "leech", suspend if the preset says so
+  if (!res.preview && ease === 1 && card.type === 3 && isLeech(card, conf)) { // Anki: tag "leech", suspend if the preset says so
     noteAfter = { ...note, tags: tagStr([...new Set([...tagsOf(note), 'leech'])]), mod: now() }
     if (conf.lapse.leechAction === 0) card.queue = -1
   }
   const tm = t()
-  const field = before.type === 0 ? 'newToday' : before.queue === 2 || before.queue === 3 ? 'revToday' : null
+  const field = res.preview ? null : before.type === 0 ? 'newToday' : before.queue === 2 || before.queue === 3 ? 'revToday' : null
   // Anki counts the answer against the card's deck and all its parents
   const chain = chainOf(deck)
   const decksBefore = structuredClone(chain)
@@ -234,7 +234,7 @@ export function answer(card_id, ease) {
     saveDeck({ ...d, [field]: [tm.today, (day === tm.today ? n : 0) + 1] })
   }
   // Anki's "bury siblings": the note's other cards wait until tomorrow, as the preset says
-  const siblings = cardsOf(before.nid).filter((c) => c.id !== before.id && (
+  const siblings = res.preview ? [] : cardsOf(before.nid).filter((c) => c.id !== before.id && (
     (c.queue === 0 && conf.new.bury) || (c.queue === 2 && conf.rev.bury) || (c.queue === 3 && conf.buryInterdayLearning)))
   undoStack = [...undoStack.slice(-19), { card: before, decks: decksBefore, log, note: noteAfter && note, siblings }]
   saveCards([card, ...siblings.map((c) => ({ ...c, queue: -2 }))])
