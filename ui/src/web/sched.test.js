@@ -117,3 +117,9 @@ test('filtered deck without rescheduling: Again/Hard repeat, Good/Easy go home u
   const q = queue([{ ...card, queue: 4, due: t.now - 1 }], () => [], t)
   assert.equal(q.counts.learn, 1)
 })
+
+test('an individual deck: the limit comes from its own config', () => {
+  const own = { ...conf, new: { ...conf.new, perDay: 4 } }
+  assert.equal(limits({ ...deck, newLimit: null, newToday: [t.today, 1] }, own, t.today).new, 3)
+  assert.equal(limits({ ...deck, newLimit: null, newLimitToday: { limit: 2, today: t.today } }, own, t.today).new, 2)
+})

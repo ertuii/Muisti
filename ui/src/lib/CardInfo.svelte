@@ -29,7 +29,7 @@
     [t('Kartentyp'), info.card_type],
     [t('Notiztyp'), info.notetype],
     [t('Stapel'), info.original_deck ? `${info.deck} (${info.original_deck})` : info.deck],
-    [t('Voreinstellung'), info.preset],
+    [t('Voreinstellung'), info.preset === 'Individuell' ? t('Individuell') : info.preset],
   ].filter(Boolean))
 </script>
 

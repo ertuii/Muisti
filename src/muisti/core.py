@@ -160,11 +160,36 @@ class Core:
         info = self._col.decks.get_deck_configs_for_update(deck_id)
         return info, {c.config.id: c for c in info.all_config}
 
+    # A deck uses a preset, or is "individual": its own hidden config, so scheduling, sync and export need no special
+    # case. Hidden configs stay and are reused (cloud.py syncs no config deletions); the preset they came from is in _BASE.
+    _BASE = "muisti.individualBase"  # {deck_id: preset_id}
+    _HIDDEN_PRESET = re.compile(r"Individuell \d+")
+
+    def _is_individual(self, cfg) -> bool:
+        return bool(self._HIDDEN_PRESET.fullmatch(cfg.name))
+
+    def _set_base(self, deck_id: int, preset_id: int | None) -> None:
+        bases = {**self._col.get_config(self._BASE, {})}
+        if preset_id is None:
+            bases.pop(str(deck_id), None)
+        else:
+            bases[str(deck_id)] = preset_id
+        self._col.set_config(self._BASE, bases)
+
+    def _base_of(self, deck_id: int, current, by_id: dict) -> int:
+        """The preset a deck's options came from; a preset that was deleted since falls back to the first one."""
+        if not self._is_individual(current):
+            return current.id
+        base = self._col.get_config(self._BASE, {}).get(str(deck_id))
+        return base if base in by_id else next(i for i, c in by_id.items() if not self._is_individual(c.config))
+
     @_locked
     def deck_options(self, deck_id: int, preset_id: int | None = None) -> dict:
-        """All of Anki's preset options (flat, by their protobuf names) plus deck-only limits and global flags."""
+        """All of Anki's preset options (flat, by their protobuf names) plus today's limits and global flags.
+        preset_id: the values of that preset instead of the deck's own, to show what choosing it would mean."""
         info, by_id = self._configs_for(deck_id)
-        cfg = by_id[preset_id or info.current_deck.config_id].config
+        current = by_id[info.current_deck.config_id].config
+        cfg = by_id[preset_id].config if preset_id else current
         c = cfg.config
         opts = {}
         for f in c.DESCRIPTOR.fields:
@@ -173,16 +198,25 @@ class Core:
             v = getattr(c, f.name)
             opts[f.name] = [round(x, 4) for x in v] if f.name in self._LIST_OPTIONS else round(v, 4) if isinstance(v, float) else v
         lim = info.current_deck.limits
+        individual = not preset_id and self._is_individual(current)
+        if not preset_id:  # a deck's own limit from before individual options: the same thing now
+            for k, name in (("new", "new_per_day"), ("review", "reviews_per_day")):
+                if lim.HasField(k):
+                    opts[name] = getattr(lim, k)
+                    individual = True
+        base = preset_id or self._base_of(deck_id, current, by_id)
         return {
             **opts,
             "deck_name": info.current_deck.name,
-            "preset_id": cfg.id,
-            "presets": [{"id": x.config.id, "name": x.config.name, "decks": x.use_count} for x in info.all_config],
+            "preset_id": base,
+            "individual": individual,
+            "base_preset_name": by_id[base].config.name,
+            "others": by_id[base].use_count - (current.id == base),  # other decks overwriting the preset would change
+            "presets": [{"id": x.config.id, "name": x.config.name, "decks": x.use_count} for x in info.all_config if not self._is_individual(x.config)],
             "fsrs": info.fsrs,
             "fsrs_optimized": len(c.fsrs_params_6) > 0,
             "days_since_optimize": info.days_since_last_fsrs_optimize,
-            # deck-only overrides; None = use the preset
-            "limits": {k: (getattr(lim, k) if lim.HasField(k) else None) for k in self._LIMITS},
+            "limits": {k: (getattr(lim, k) if lim.HasField(k) else None) for k in ("new_today", "review_today")},
             "subdecks": len(self._col.decks.deck_and_child_ids(deck_id)) - 1,
             "new_cards_ignore_review_limit": info.new_cards_ignore_review_limit,
             "apply_all_parent_limits": info.apply_all_parent_limits,
@@ -204,13 +238,7 @@ class Core:
             fsrs_health_check=info.fsrs_health_check,
         ))
 
-    @_locked
-    def save_deck_options(self, deck_id: int, options: dict) -> None:
-        """options: same shape as deck_options(); unknown keys are ignored, missing keys keep their value.
-        'fsrs_reschedule': True reschedules all cards when FSRS settings change."""
-        info, by_id = self._configs_for(deck_id)
-        cfg = by_id[options.get("preset_id", info.current_deck.config_id)].config
-        c = cfg.config
+    def _write_options(self, c, options: dict) -> None:
         for f in c.DESCRIPTOR.fields:
             if f.name in self._HIDDEN_OPTIONS or f.name not in options:
                 continue
@@ -219,26 +247,62 @@ class Core:
                 getattr(c, f.name).extend(float(x) for x in options[f.name])
             else:
                 setattr(c, f.name, type(getattr(c, f.name))(options[f.name]))
-        limits = None
-        if "limits" in options:
-            limits = type(info.current_deck.limits)()
-            limits.CopyFrom(info.current_deck.limits)
-            for k in self._LIMITS:
-                v = options["limits"].get(k)
+
+    def _apply_to_deck(self, deck_id: int, info, cfg, options: dict) -> None:
+        """Put the deck on cfg. The daily limits are cfg's now: a deck's own limit from before goes away, today's stays."""
+        limits = type(info.current_deck.limits)()
+        limits.CopyFrom(info.current_deck.limits)
+        limits.ClearField("new")
+        limits.ClearField("review")
+        for k in ("new_today", "review_today"):
+            if k in options.get("limits", {}):
+                v = options["limits"][k]
                 limits.ClearField(k) if v in (None, "") else setattr(limits, k, int(v))
-            limits.new_today_active = options["limits"].get("new_today") not in (None, "")
-            limits.review_today_active = options["limits"].get("review_today") not in (None, "")
+                setattr(limits, f"{k}_active", v not in (None, ""))
         self._save_configs(deck_id, info, cfg, bool(options.get("fsrs", info.fsrs)), limits,
                            {k: options[k] for k in ("new_cards_ignore_review_limit", "apply_all_parent_limits") if k in options},
                            bool(options.get("fsrs_reschedule")))
-        if limits is not None and options.get("limits_to_subdecks"):  # the deck's own limits for its subdecks too
+
+    def _make_individual(self, deck_id: int, options: dict) -> None:
+        """Save options as this deck's own, leaving its preset and every other deck alone."""
+        info, by_id = self._configs_for(deck_id)
+        current = by_id[info.current_deck.config_id].config
+        base = options["preset_id"] if options.get("preset_id") in by_id else self._base_of(deck_id, current, by_id)
+        # an individual deck keeps its own hidden values (FSRS parameters), a chosen preset passes on its own
+        source = current if options.get("individual") or self._is_individual(current) and not options.get("preset_id") else by_id[base].config
+        name = f"Individuell {deck_id}"
+        cfg = type(source)()
+        cfg.CopyFrom(source)
+        cfg.id = next((i for i, x in by_id.items() if x.config.name == name), 0)  # 0 = create new
+        cfg.name = name
+        self._write_options(cfg.config, options)
+        self._set_base(deck_id, base)
+        self._apply_to_deck(deck_id, info, cfg, options)
+
+    @_locked
+    def save_deck_options(self, deck_id: int, options: dict) -> None:
+        """options: same shape as deck_options(); unknown keys are ignored, missing keys keep their value. Only this
+        deck changes. 'use_preset': put the deck on that preset instead of saving values. 'limits_to_subdecks': the same
+        values for its subdecks. 'fsrs_reschedule': True reschedules all cards when FSRS settings change."""
+        if options.get("use_preset"):
+            info, by_id = self._configs_for(deck_id)
+            self._set_base(deck_id, None)
+            self._apply_to_deck(deck_id, info, by_id[options["use_preset"]].config, options)
+        else:
+            self._make_individual(deck_id, options)
+        if options.get("limits_to_subdecks"):
             for did in self._col.decks.deck_and_child_ids(deck_id)[1:]:
-                d = self._col.decks.get(did)
-                if d["dyn"]:
-                    continue
-                d["newLimit"] = limits.new if limits.HasField("new") else None
-                d["reviewLimit"] = limits.review if limits.HasField("review") else None
-                self._col.decks.save(d)
+                if not self._col.decks.get(did)["dyn"]:  # their own today's limits stay
+                    self._make_individual(did, {k: v for k, v in options.items() if k not in ("limits", "preset_id", "individual")})
+
+    @_locked
+    def overwrite_preset(self, deck_id: int, options: dict) -> None:
+        """Write the deck's values into the preset they came from (options["preset_id"]); the deck uses it again."""
+        info, by_id = self._configs_for(deck_id)
+        cfg = by_id[options["preset_id"]].config
+        self._write_options(cfg.config, options)
+        self._set_base(deck_id, None)
+        self._apply_to_deck(deck_id, info, cfg, options)
 
     _MIXED = "muisti.mixedSubdecks"
 
@@ -273,15 +337,17 @@ class Core:
         self._col.set_preferences(p)
 
     @_locked
-    def new_preset(self, deck_id: int, name: str) -> int:
-        """Clone the deck's current preset under a new name and assign it to the deck."""
+    def new_preset(self, deck_id: int, name: str, options: dict | None = None) -> int:
+        """Clone the deck's current preset under a new name, with the given values, and assign it to the deck."""
         info, by_id = self._configs_for(deck_id)
         cfg = by_id[info.current_deck.config_id].config
         clone = type(cfg)()
         clone.CopyFrom(cfg)
         clone.id = 0  # 0 = create new
         clone.name = name.strip()
-        self._save_configs(deck_id, info, clone, info.fsrs)
+        self._write_options(clone.config, options or {})
+        self._set_base(deck_id, None)
+        self._apply_to_deck(deck_id, info, clone, options or {})
         return self._col.decks.get(deck_id)["conf"]
 
     @_locked
@@ -831,13 +897,9 @@ class Core:
 
     @_locked
     def apply_exam_pace(self, deck_id: int) -> int:
-        """Set this deck's own new-cards limit (not the shared preset) to the pace its exam needs."""
+        """Set this deck's new-cards limit (individual, not the shared preset) to the pace its exam needs."""
         plan = next(p for p in self.exam_plan() if p["deck_id"] == deck_id)
-        info, by_id = self._configs_for(deck_id)
-        limits = type(info.current_deck.limits)()
-        limits.CopyFrom(info.current_deck.limits)
-        limits.new = plan["per_day"]
-        self._save_configs(deck_id, info, by_id[info.current_deck.config_id].config, info.fsrs, limits)
+        self.save_deck_options(deck_id, {**self.deck_options(deck_id), "new_per_day": plan["per_day"]})
         return plan["per_day"]
 
     # ---------- 2. study plan across decks ----------
@@ -880,19 +942,25 @@ class Core:
             t = len(ids)
             if t >= min_reviews and 100 * p / t < (overall or 0) and (ids := frozenset(ids)) not in seen:  # a tag covering exactly a deck once
                 seen.add(ids)
-                spots.append({"kind": k, "name": n, "reviews": t, "retention": round(100 * p / t)})
+                spots.append({"kind": k, "name": n, "reviews": t, "wrong": t - p, "retention": round(100 * p / t)})
         spots.sort(key=lambda x: (x["retention"], -x["reviews"]))
-        return {"overall": overall, "reviews": total, "spots": spots[:10]}
+        spots = spots[:10]
+        for s in spots:  # what "practice" would gather, so the screen can say so
+            s["cards"] = len(self._col.find_cards(self._practice_search(s["kind"], s["name"], days)))
+        return {"overall": overall, "reviews": total, "spots": spots}
+
+    def _practice_search(self, kind: str, name: str, days: int) -> str:
+        escaped = re.sub(r'(["*_\\])', r"\\\1", name)
+        scope = f'"tag:{escaped}"' if kind == "tag" else f'"deck:{escaped}"'
+        wrong = " OR ".join(f"rated:{days}:{e}" for e in range(1, self._fail_ease() + 1))
+        return f"{scope} -is:suspended -is:buried -is:new ({wrong} OR prop:lapses>=2)"
 
     @_locked
     def practice(self, kind: str, name: str, days: int = 90) -> dict:
         """Temporary deck with the cards of a tag/deck answered wrong in the last `days` days (the period the
         weak spots were counted over) or forgotten often."""
-        escaped = re.sub(r'(["*_\\])', r"\\\1", name)
-        scope = f'"tag:{escaped}"' if kind == "tag" else f'"deck:{escaped}"'
-        wrong = " OR ".join(f"rated:{days}:{e}" for e in range(1, self._fail_ease() + 1))
         title = f"Üben: {name.split('::')[-1]}"
-        did = self._temp_deck(title, f"{scope} -is:suspended -is:new ({wrong} OR prop:lapses>=2)", 4, resched=False)  # 4 = most lapses; practice leaves the schedule alone
+        did = self._temp_deck(title, self._practice_search(kind, name, days), 4, resched=False)  # 4 = most lapses; practice leaves the schedule alone
         if not did:
             raise ValueError("Keine vergessenen Karten zum Üben gefunden.")
         return {"deck_id": did, "name": title, "count": len(self._col.decks.cids(did))}
@@ -1131,6 +1199,8 @@ class Core:
         info = {k: getattr(st, k) for k in (
             "deck", "original_deck", "notetype", "card_type", "preset", "added", "first_review", "latest_review",
             "due_date", "due_position", "interval", "ease", "reviews", "lapses", "average_secs", "total_secs")}
+        if self._HIDDEN_PRESET.fullmatch(info["preset"]):
+            info["preset"] = "Individuell"
         if st.HasField("memory_state"):
             info |= {"stability": st.memory_state.stability, "difficulty": st.memory_state.difficulty}
         if st.HasField("fsrs_retrievability"):

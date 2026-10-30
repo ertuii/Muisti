@@ -398,9 +398,6 @@
             <span><b>{x.name}</b><small class="muted">{x.hint}</small></span>
           </label>
         {/each}
-        <label class="extra"><input type="checkbox" bind:checked={features.hard_wrong} onchange={saveFeatures} />
-          <span><b>{t('„Schwer“ als falsch werten')}</b><small class="muted">{t('Antworten mit „Schwer“ zählen in Statistik und Schwachstellen als falsch und kommen beim Üben dran. Wann Karten wieder fällig werden, ändert sich nicht.')}</small></span>
-        </label>
         <label class="extra"><input type="checkbox" bind:checked={features.inbox} onchange={saveFeatures} />
           <span><b>{t('Karten von Claude erst prüfen')}</b><small class="muted">{t('Neue Karten von Claude warten im Eingang, bis du sie übernimmst. Ausgeschaltet werden sie sofort gelernt.')}</small></span>
         </label>
@@ -440,6 +437,11 @@
         <label class="check"><input type="checkbox" bind:checked={prefs.reviewing.hide_audio_play_buttons} />{t('Wiedergabeknöpfe auf Karten ausblenden')}</label>
         <label class="check"><input type="checkbox" bind:checked={prefs.reviewing.load_balancer_enabled} />{t('Wiederholungen gleichmäßig auf Tage verteilen (Lastverteilung)')}</label>
         <label class="check"><input type="checkbox" bind:checked={prefs.reviewing.fsrs_short_term_with_steps_enabled} />{t('FSRS auch für Lernschritte am selben Tag nutzen')}</label>
+        {#if features}
+          <label class="extra"><input type="checkbox" bind:checked={features.hard_wrong} onchange={saveFeatures} />
+            <span>{t('„Schwer“ als falsch werten')}<small class="muted">{t('Antworten mit „Schwer“ zählen in Statistik und Schwachstellen als falsch und kommen beim Üben dran. Wann Karten wieder fällig werden, ändert sich nicht.')}</small></span>
+          </label>
+        {/if}
       </div>
     </section>
 

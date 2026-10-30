@@ -46,11 +46,16 @@ for tag, ease in (("zelle", 1), ("genetik", 3)):
         rid += 1
         col.db.execute("insert into revlog values (?,?,-1,?,1,1,2500,1000,1)", rid, cid, ease)
 w = core.weak_spots()
-assert w["spots"][0] == {"kind": "tag", "name": "zelle", "reviews": 20, "retention": 0}, w["spots"][0]
+assert w["spots"][0] == {"kind": "tag", "name": "zelle", "reviews": 20, "wrong": 20, "retention": 0, "cards": 0}, w["spots"][0]  # new cards can't be practiced
 assert w["overall"] == 50
 col.db.execute("update cards set type = 2, queue = 2, due = ?, ivl = 3, lapses = 3 where id in (%s)" % ",".join(map(str, cards["zelle"])), col.sched.today + 5)
 p = core.practice("tag", "zelle")
 assert p["count"] == 20 and p["name"] == "Üben: zelle"
+assert core.weak_spots()["spots"][0]["reviews"] == 20
+core.end_prelearn(p["deck_id"])
+assert core.weak_spots()["spots"][0]["cards"] == 20  # what the button promises is what practice gathers
+p = core.practice("tag", "zelle")
+assert p["count"] == 20
 core.end_prelearn(p["deck_id"])
 assert not col.decks.by_name("Üben: zelle")
 

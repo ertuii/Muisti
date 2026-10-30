@@ -12,6 +12,8 @@
   let newPreset = $state(null)
   let reschedule = $state(false)
   let toSubdecks = $state(false)
+  let confirmOverwrite = $state(false)
+  let loaded = $state('') // the form as it came from the preset or deck, to see whether anything differs
 
   // Anki stores steps in minutes; show them as "1m 10m 1d".
   const fmtSteps = (xs) => xs.map((m) => (m >= 1440 && m % 1440 === 0 ? `${m / 1440}d` : m >= 60 && m % 60 === 0 ? `${m / 60}h` : `${m}m`)).join(' ')
@@ -88,38 +90,43 @@
     ] },
   ]
 
-  // Daily limits like Anki: the preset's value, this deck's own, or one for today only; the highest one set applies.
-  const LIMITS = { new: ['new_per_day', 'new', 'new_today'], review: ['reviews_per_day', 'review', 'review_today'] }
-  const SCOPES = ['Vorgabe', 'Dieser Stapel', 'Nur heute']
+  // Daily limits: the normal value (one of the options), or one for today only.
+  const LIMITS = { new: ['new_per_day', 'new_today'], review: ['reviews_per_day', 'review_today'] }
+  const SCOPES = ['Normal', 'Nur heute']
   let scope = $state({ new: 0, review: 0 })
-  const limitAt = (kind, i) => (i ? o.limits[LIMITS[kind][i]] : o[LIMITS[kind][0]])
-  function shownLimit(kind) {
-    for (let i = scope[kind]; i >= 0; i--) if (limitAt(kind, i) != null) return limitAt(kind, i)
-  }
+  const shownLimit = (kind) => (scope[kind] ? o.limits[LIMITS[kind][1]] ?? o[LIMITS[kind][0]] : o[LIMITS[kind][0]])
   function setScope(kind, i) {
-    const v = shownLimit(kind)
-    for (let j = i + 1; j < 3; j++) o.limits[LIMITS[kind][j]] = null // a lower tab drops the ones above it
-    if (i && o.limits[LIMITS[kind][i]] == null) o.limits[LIMITS[kind][i]] = v
+    o.limits[LIMITS[kind][1]] = i ? shownLimit(kind) : null
     scope[kind] = i
   }
   function setLimit(kind, value) {
-    const i = scope[kind], k = LIMITS[kind][i]
-    if (i) o.limits[k] = value === '' ? null : Number(value)
-    else o[k] = Number(value) || 0
+    if (scope[kind]) o.limits[LIMITS[kind][1]] = value === '' ? null : Number(value)
+    else o[LIMITS[kind][0]] = Number(value) || 0
   }
+
+  // what is not a preset's value: facts about the deck, today's limits, and the options Anki only has for all decks
+  const NOT_PRESET = new Set(['deck_name', 'preset_id', 'individual', 'base_preset_name', 'others', 'presets', 'fsrs', 'fsrs_optimized', 'days_since_optimize',
+    'limits', 'subdecks', 'new_cards_ignore_review_limit', 'apply_all_parent_limits', 'learn_steps', 'relearn_steps'])
+  const formState = () => JSON.stringify([Object.entries(o).filter(([k]) => !NOT_PRESET.has(k)), steps])
+  const changed = $derived(o && formState() !== loaded)
+  const own = $derived(o && (o.individual || changed)) // the deck has (or will have) its own values
 
   async function load(presetId) {
     o = await api.deck_options(deckId, presetId ?? null)
     steps = { learn_steps: fmtSteps(o.learn_steps), relearn_steps: fmtSteps(o.relearn_steps) }
-    for (const kind in LIMITS) scope[kind] = o.limits[LIMITS[kind][2]] != null ? 2 : o.limits[LIMITS[kind][1]] != null ? 1 : 0
+    for (const kind in LIMITS) scope[kind] = o.limits[LIMITS[kind][1]] != null ? 1 : 0
+    loaded = formState()
+    confirmOverwrite = false
   }
+
+  const formData = () => ({ ...$state.snapshot(o), learn_steps: parseSteps(steps.learn_steps), relearn_steps: parseSteps(steps.relearn_steps), fsrs_reschedule: reschedule })
 
   async function save() {
     saving = true
     try {
-      const data = { ...$state.snapshot(o), learn_steps: parseSteps(steps.learn_steps), relearn_steps: parseSteps(steps.relearn_steps), fsrs_reschedule: reschedule, limits_to_subdecks: toSubdecks }
-      await api.save_deck_options(deckId, data)
-      notify(toSubdecks ? t('Optionen gespeichert, Limits auch für die Unterstapel') : t('Optionen gespeichert'))
+      // nothing differs from the chosen preset: the deck simply uses it
+      await api.save_deck_options(deckId, { ...formData(), limits_to_subdecks: toSubdecks, ...(own ? {} : { use_preset: o.preset_id }) })
+      notify(toSubdecks ? t('Optionen gespeichert, auch für die Unterstapel') : t('Optionen gespeichert'))
       toSubdecks = false
       await load()
     } catch (e) {
@@ -129,10 +136,23 @@
     }
   }
 
+  async function overwritePreset() {
+    if (o.others && !confirmOverwrite) return (confirmOverwrite = true)
+    try {
+      const name = o.base_preset_name
+      await api.overwrite_preset(deckId, formData())
+      notify(t('Voreinstellung „{name}“ gespeichert', { name }))
+      await load()
+    } catch (e) {
+      confirmOverwrite = false
+      notify(String(e?.message ?? e), true)
+    }
+  }
+
   async function createPreset() {
     if (!newPreset?.trim()) return (newPreset = null)
     try {
-      await api.new_preset(deckId, newPreset)
+      await api.new_preset(deckId, newPreset, formData())
       notify(t('Voreinstellung „{name}“ angelegt', { name: newPreset }))
       newPreset = null
       await load()
@@ -205,11 +225,17 @@
 
     <section>
       <h2>{t('Voreinstellung')}</h2>
-      <p class="muted">{t('Optionen gehören zu einer Voreinstellung, die mehrere Stapel teilen können.')}</p>
+      <p class="muted">{t('Änderst du einen Wert, gilt er nur für diesen Stapel, er steht dann auf „Individuell“. Wählst du eine Voreinstellung, übernimmt er ihre Werte. Der Button neben der Auswahl schreibt deine Werte in die Voreinstellung.')}</p>
       <div class="row">
-        <select bind:value={o.preset_id} onchange={() => load(o.preset_id)}>
+        <select aria-label={t('Voreinstellung')} value={own ? 'own' : o.preset_id} onchange={(e) => load(Number(e.currentTarget.value))}>
+          {#if own}<option value="own">{t('Individuell (aus „{name}“)', { name: o.base_preset_name })}</option>{/if}
           {#each o.presets as p}<option value={p.id}>{p.name} · {t('{n} Stapel', { n: p.decks })}</option>{/each}
         </select>
+        {#if own}
+          <button class:danger={confirmOverwrite} onclick={overwritePreset} onblur={() => (confirmOverwrite = false)}>
+            {confirmOverwrite ? t('Gilt für {n} weitere Stapel, wirklich?', { n: o.others }) : t('In „{name}“ speichern', { name: o.base_preset_name })}
+          </button>
+        {/if}
         {#if newPreset === null}
           <button class="ghost" onclick={() => (newPreset = '')}>{t('Neue Voreinstellung')}</button>
         {:else}
@@ -226,11 +252,8 @@
         {@render limit('new', 'Neue Karten pro Tag')}
         {@render limit('review', 'Wiederholungen pro Tag')}
       </div>
-      <p class="muted">{t('„Vorgabe“ gilt für alle Stapel dieser Voreinstellung, „Dieser Stapel“ nur hier, „Nur heute“ bis morgen.')}</p>
+      <p class="muted">{t('„Normal“ ist der Wert für jeden Tag, „Nur heute“ gilt bis morgen.')}</p>
       <div class="checks">
-        {#if o.subdecks}
-          <label class="check"><input type="checkbox" bind:checked={toSubdecks} />{t('Auch für alle {n} Unterstapel übernehmen', { n: o.subdecks })}</label>
-        {/if}
         <label class="check"><input type="checkbox" bind:checked={o.new_cards_ignore_review_limit} />{t('Neue Karten ignorieren das Wiederholungslimit')} <span class="muted">{t('(alle Stapel)')}</span></label>
         <label class="check"><input type="checkbox" bind:checked={o.apply_all_parent_limits} />{t('Limits aller übergeordneten Stapel anwenden')} <span class="muted">{t('(alle Stapel)')}</span></label>
       </div>
@@ -282,6 +305,9 @@
       <datalist id="easy-ticks"><option value="0.5"></option></datalist>
     </section>
 
+    {#if o.subdecks}
+      <label class="check"><input type="checkbox" bind:checked={toSubdecks} />{t('Auch für alle {n} Unterstapel übernehmen', { n: o.subdecks })}</label>
+    {/if}
     <div class="bar">
       <button class="ghost" onclick={onBack}>{t('Abbrechen')}</button>
       <button disabled={saving} onclick={save}>{saving ? t('Speichere …') : t('Speichern')}</button>
@@ -305,6 +331,7 @@
   h2 { font-size: 16px; font-weight: 700; }
   section > p { font-size: 13px; max-width: 65ch; }
   .row { display: flex; gap: 8px; }
+  .row { flex-wrap: wrap; }
   .row select { width: 280px; }
   .fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
   label, .opt { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--ink-2); }
@@ -326,7 +353,6 @@
   @media (max-width: 860px) {
     .opts { padding: 12px 16px 0; gap: 22px; }
     h1 { font-size: 22px; overflow-wrap: anywhere; }
-    .row { flex-wrap: wrap; }
     .row select { width: auto; flex: 1 1 100%; }
     .fields { grid-template-columns: minmax(0, 1fr); }
     .bar { padding: 12px 0 calc(12px + env(safe-area-inset-bottom)); }
