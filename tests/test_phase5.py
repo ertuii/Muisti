@@ -14,7 +14,7 @@ core = Core(collection_path())
 col = core._col
 
 # features: off by default except the inbox
-assert core.features() == {"exams": False, "plan": False, "weak": False, "inbox": True}
+assert core.features() == {"exams": False, "plan": False, "weak": False, "inbox": True, "hard_wrong": False}
 core.save_features({"exams": True, "plan": True, "weak": True})
 assert core.features()["exams"] and core.overview()["features"]["weak"]
 
@@ -53,6 +53,19 @@ p = core.practice("tag", "zelle")
 assert p["count"] == 20 and p["name"] == "Üben: zelle"
 core.end_prelearn(p["deck_id"])
 assert not col.decks.by_name("Üben: zelle")
+
+core.save_features({"hard_wrong": True})  # "Schwer" counts as wrong: the same answers now pull the average down
+rid = (col.sched.day_cutoff - 86400) * 1000 + 1000
+for cid in cards["genetik"][:5]:
+    rid += 1
+    col.db.execute("insert into revlog values (?,?,-1,2,1,1,2500,1000,1)", rid, cid)
+assert core.weak_spots()["overall"] < 50 and core.overview()["retention"] < 50
+assert core.statistics()["hard_wrong"] is True
+core.save_features({"hard_wrong": False})
+assert core.weak_spots()["overall"] > 50
+p = core.practice("tag", "zelle", 365)  # the period the statistics show
+assert p["count"] == 20
+core.end_prelearn(p["deck_id"])
 
 # 5. difficult cards
 d = core.difficult_cards("Bio", 5)

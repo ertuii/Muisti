@@ -754,5 +754,8 @@
  "Nummerierte Liste": "Numbered list",
  "Formatierung entfernen": "Clear formatting",
  "Formatierung": "Formatting",
- "Markdown geht auch: **fett**, *kursiv*, - Liste": "Markdown works too: **bold**, *italic*, - list"
+ "Markdown geht auch: **fett**, *kursiv*, - Liste": "Markdown works too: **bold**, *italic*, - list",
+ "Wird vorbereitet …": "Preparing …",
+ "„Schwer“ als falsch werten": "Count “Hard” as wrong",
+ "Antworten mit „Schwer“ zählen in Statistik und Schwachstellen als falsch und kommen beim Üben dran. Wann Karten wieder fällig werden, ändert sich nicht.": "Answers with “Hard” count as wrong in the statistics and weak spots, and come up when you practice. When cards are due again does not change."
 }

@@ -84,8 +84,8 @@
     if (r) go('study', { deckId: r.deck_id, deckName: r.name, temporary: true })
   }
 
-  async function practice(kind, name) {
-    const r = await run(() => api.practice(kind, name))
+  async function practice(kind, name, days) {
+    const r = await run(() => api.practice(kind, name, days))
     if (r) go('study', { deckId: r.deck_id, deckName: r.name, temporary: true })
   }
 

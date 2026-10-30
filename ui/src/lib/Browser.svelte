@@ -3,6 +3,7 @@
   import { Search, Flag, X } from '@lucide/svelte'
   import { api, FLAG_COLORS } from './api.js'
   import Editor from './Editor.svelte'
+  import CardInfo from './CardInfo.svelte'
   import { t, tmsg } from './i18n.js'
 
   let { flat, run, notify } = $props()
@@ -23,6 +24,7 @@
   let active = $state(null) // row shown in the editor panel
   let confirmDelete = $state(false)
   let loading = $state(false)
+  let info = $state(null) // card info (core.card_info) in a sheet
 
   const FLAGS = FLAG_COLORS.map((f) => ({ ...f, label: t(f.label) }))
 
@@ -97,7 +99,16 @@
     await bulk(() => api.forget_cards(ids), (n) => t(n === 1 ? '{n} Karte zurückgesetzt' : '{n} Karten zurückgesetzt', { n }))
   }
 
+  async function showInfo() {
+    try {
+      info = await api.card_info(active.card_id)
+    } catch (e) {
+      notify(String(e?.message ?? e), true)
+    }
+  }
+
   function onKey(e) {
+    if (info) return e.key === 'Escape' && (info = null)
     const typing = e.target instanceof Element && e.target.closest('input, textarea, select, [contenteditable]')
     if ((e.metaKey || e.ctrlKey) && e.key === 'a' && !typing) {
       e.preventDefault()
@@ -194,12 +205,22 @@
 
   {#if active}
     <aside class="panel">
+      <button class="ghost sm stats-btn" onclick={showInfo}>{t('Kartenstatistik')}</button>
       {#key active.note_id}
         <Editor noteId={active.note_id} {flat} {notify} onSaved={search} onCancel={() => (active = null)} />
       {/key}
     </aside>
   {/if}
 </div>
+
+{#if info}
+  <div class="sheet-backdrop" onclick={(e) => e.target === e.currentTarget && (info = null)} role="presentation">
+    <div class="sheet" role="dialog" aria-label={t('Kartenstatistik')}>
+      <div class="sheet-head"><h2>{t('Kartenstatistik')}</h2><button class="ghost sm" onclick={() => (info = null)}>{t('Schließen')}</button></div>
+      <CardInfo {info} />
+    </div>
+  </div>
+{/if}
 
 <style>
   .browser { display: flex; height: 100%; }
@@ -237,6 +258,11 @@
   .cb input { vertical-align: middle; }
   .empty { color: var(--ink-2); padding: 32px 12px; }
   .panel { width: min(420px, 40%); border-left: 1px solid var(--rule); padding: 24px 28px; overflow: auto; }
+  .stats-btn { margin-bottom: 12px; }
+  .sheet-backdrop { position: fixed; inset: 0; background: rgb(0 0 0 / 0.28); display: flex; justify-content: flex-end; z-index: 30; }
+  .sheet { width: min(640px, 100%); height: 100%; background: var(--paper); padding: 28px 32px; overflow: auto; display: flex; flex-direction: column; gap: 20px; }
+  .sheet h2 { font-size: 20px; font-weight: 750; }
+  .sheet-head { display: flex; justify-content: space-between; align-items: center; }
   @container (max-width: 640px) { .opt { display: none; } .c-deck { width: 32%; } .c-ivl { width: 64px; } }
   @container (max-width: 420px) { .hint { display: none; } td { padding: 10px 6px; } .cb { width: 32px; } }
   @media (max-width: 720px) {
@@ -245,6 +271,7 @@
     .count { width: 100%; margin: 0; }
     .selection:not(.on) { display: none; }
     /* the editor takes the whole screen; "Abbrechen" closes it */
+    .sheet { padding: 20px 16px calc(20px + env(safe-area-inset-bottom)); }
     .panel { position: fixed; inset: 0; z-index: 25; width: auto; border: 0; background: var(--paper); padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); }
   }
 </style>

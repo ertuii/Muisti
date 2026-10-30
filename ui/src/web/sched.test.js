@@ -95,3 +95,13 @@ test('days since creation with a 4 o\'clock rollover', () => {
   assert.equal(timing(crt, 7, new Date(2026, 0, 11, 6).getTime() / 1000).today, 0)
   assert.equal(timing(crt, 7, new Date(2026, 0, 11, 8).getTime() / 1000).today, 1)
 })
+
+test('review in a filtered deck: the real due day counts, not the position (values from Anki)', () => {
+  const card = { ...newCard, type: 2, queue: 2, ivl: 30, factor: 2500, reps: 5, due: -100000, odid: 9 }
+  const [, hard, good] = outcomes({ ...card, odue: t.today }, conf, deck, t, false)
+  assert.ok(Math.abs(hard.card.ivl - 36) <= 2, String(hard.card.ivl))
+  assert.ok(Math.abs(good.card.ivl - 75) <= 4, String(good.card.ivl)) // not 100 years
+  const early = outcomes({ ...card, odue: t.today + 20 }, conf, deck, t, false) // Anki: 18 Tg. / 30 Tg.
+  assert.ok(Math.abs(early[1].card.ivl - 18) <= 1, String(early[1].card.ivl))
+  assert.ok(Math.abs(early[2].card.ivl - 30) <= 2, String(early[2].card.ivl))
+})

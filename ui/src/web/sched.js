@@ -101,6 +101,8 @@ export function label(secs, learning, tr = (s, { n }) => s.replace('{n}', String
 // ---------- answering ----------
 
 const stepsOf = (card) => card.left % 1000
+// in a filtered deck `due` is only the card's position there, the real day is in odue
+const dueDay = (card) => card.odue || card.due
 
 /** The four possible outcomes (Again … Easy) of answering `card`; each is {card, revlog, secs}. */
 export function outcomes(card, conf, deck, t, useFsrs) {
@@ -154,7 +156,8 @@ function sm2(card, ease, conf, t) {
     return learningStep(lapseSteps, 3, () => Math.max(conf.lapse.minInt, card.ivl))
 
   // review
-  const late = Math.max(0, t.today - card.due)
+  const days = t.today - dueDay(card)
+  const late = Math.max(0, days)
   const f = card.factor / 1000, mod = conf.rev.ivlFct, max = conf.rev.maxIvl
   if (ease === 1) {
     const ivl = Math.max(conf.lapse.minInt, Math.round(card.ivl * conf.lapse.mult))
@@ -162,9 +165,13 @@ function sm2(card, ease, conf, t) {
     if (lapseSteps.length) return after(card, { type: 3, delaySecs: lapseSteps[0] * 60, ivl, factor, left: lapseSteps.length, lapses: card.lapses + 1 }, t)
     return after(card, { type: 2, ivl, factor, lapses: card.lapses + 1 }, t)
   }
-  const hard = Math.min(max, Math.max(card.ivl + 1, Math.round(card.ivl * conf.rev.hardFactor * mod)))
-  const good = Math.min(max, Math.max(hard + 1, Math.round((card.ivl + late / 2) * f * mod)))
-  const easy = Math.min(max, Math.max(good + 1, Math.round((card.ivl + late) * f * conf.rev.ease4 * mod)))
+  const elapsed = card.ivl + days
+  const early = days < 0 // only in a filtered deck; Anki's passing_early_review_intervals
+  const hard = Math.min(max, early ? Math.max(1, Math.round(Math.max(elapsed * conf.rev.hardFactor, card.ivl * conf.rev.hardFactor / 2) * mod))
+    : Math.max(card.ivl + 1, Math.round(card.ivl * conf.rev.hardFactor * mod)))
+  const good = Math.min(max, Math.max(hard + 1, Math.round((early ? Math.max(elapsed * f, card.ivl) : (card.ivl + late / 2) * f) * mod)))
+  const easy = Math.min(max, Math.max(good + 1, Math.round((early
+    ? Math.max(elapsed * f * (conf.rev.ease4 - (conf.rev.ease4 - 1) / 2), card.ivl) : (card.ivl + late) * f * conf.rev.ease4) * mod)))
   const ivl = { 2: hard, 3: good, 4: easy }[ease]
   const factor = { 2: card.factor - 150, 3: card.factor, 4: card.factor + 150 }[ease]
   return after(card, { type: 2, ivl: Math.min(max, fuzz(ivl, card.id + t.today)), factor: Math.max(1300, factor) }, t)
@@ -201,11 +208,11 @@ function fsrsOutcomes(card, data, conf, deck, t) {
   const dayToDate = (day) => new Date((t.now + (day - t.today) * DAY) * 1000)
   const input = {
     state: card.type, // Anki's card types are FSRS's states (new, learning, review, relearning)
-    due: card.queue === 1 ? new Date(card.due * 1000) : card.type === 0 ? now : dayToDate(card.due),
+    due: card.queue === 1 ? new Date(card.due * 1000) : card.type === 0 ? now : dayToDate(dueDay(card)),
     stability: data.s ?? 0, difficulty: data.d ?? 0, elapsed_days: 0, scheduled_days: card.ivl,
     reps: card.reps, lapses: card.lapses,
     learning_steps: card.type === 1 || card.type === 3 ? Math.max(0, steps.length - stepsOf(card)) : 0,
-    last_review: data.lrt ? new Date(data.lrt * 1000) : card.type === 2 ? dayToDate(card.due - card.ivl) : undefined,
+    last_review: data.lrt ? new Date(data.lrt * 1000) : card.type === 2 ? dayToDate(dueDay(card) - card.ivl) : undefined,
   }
   const preview = f.repeat(input, now)
   return [Rating.Again, Rating.Hard, Rating.Good, Rating.Easy].map((r) => {

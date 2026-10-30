@@ -754,5 +754,8 @@
  "Nummerierte Liste": "Lista numerada",
  "Formatierung entfernen": "Quitar formato",
  "Formatierung": "Formato",
- "Markdown geht auch: **fett**, *kursiv*, - Liste": "También con Markdown: **negrita**, *cursiva*, - lista"
+ "Markdown geht auch: **fett**, *kursiv*, - Liste": "También con Markdown: **negrita**, *cursiva*, - lista",
+ "Wird vorbereitet …": "Preparando …",
+ "„Schwer“ als falsch werten": "Contar «Difícil» como incorrecto",
+ "Antworten mit „Schwer“ zählen in Statistik und Schwachstellen als falsch und kommen beim Üben dran. Wann Karten wieder fällig werden, ändert sich nicht.": "Las respuestas con «Difícil» cuentan como incorrectas en las estadísticas y los puntos débiles, y aparecen al practicar. Cuándo vuelven a tocar las tarjetas no cambia."
 }

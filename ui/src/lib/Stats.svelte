@@ -13,6 +13,17 @@
   let days = $state(30)
   let s = $state(null)
   let spots = $state(null) // weak spots by tag and deck
+  let starting = $state(null) // the weak spot whose practice deck is being built (the worker can take a while)
+
+  async function practice(w) {
+    if (starting) return
+    starting = w
+    try {
+      await onPractice(w.kind, w.name, days)
+    } finally {
+      starting = null
+    }
+  }
 
   const PERIODS = [
     { d: 30, label: '1 Monat' },
@@ -112,7 +123,7 @@
                 </span>
                 <span class="num val">{w.retention} %</span>
                 <span class="num muted cnt">{w.reviews}×</span>
-                <button class="ghost sm" onclick={() => onPractice(w.kind, w.name)}>{t('Üben')}</button>
+                <button class="ghost sm" disabled={!!starting} onclick={() => practice(w)}>{starting === w ? t('Wird vorbereitet …') : t('Üben')}</button>
               </li>
             {/each}
           </ul>
@@ -189,7 +200,7 @@
           <tbody>
             {#each [['learning', 'Lernen (Status)'], ['young', 'Jung'], ['mature', 'Reif']] as [k, label]}
               {@const row = s.buttons[k] ?? [0, 0, 0, 0]}
-              <tr><td>{t(label)}</td>{#each row as n}<td class="num">{n}</td>{/each}<td class="num muted">{pct(sum(row) - row[0], sum(row))}</td></tr>
+              <tr><td>{t(label)}</td>{#each row as n}<td class="num">{n}</td>{/each}<td class="num muted">{pct(sum(row) - row[0] - (s.hard_wrong ? row[1] : 0), sum(row))}</td></tr>
             {/each}
           </tbody>
         </table>

@@ -9,7 +9,7 @@ import { search as runSearch } from './search.js'
 import { lang, t as tr } from '../lib/i18n.js'
 
 const INBOX_TAG = 'Claude-Eingang'
-const FEATURES = { exams: false, plan: false, weak: false, inbox: true }
+const FEATURES = { exams: false, plan: false, weak: false, inbox: true, hard_wrong: false }
 const EXAMS = 'betteranki.exams' // {deck_id: "YYYY-MM-DD"}, same key as the desktop
 const now = () => Math.floor(Date.now() / 1000)
 const cfg = (key, dflt) => (S.config.has(key) ? S.config.get(key).val : dflt)
@@ -178,6 +178,7 @@ function typeAnswer(note, fields, ord, question, answer) {
 export async function next_card(deck_id) {
   const tm = t()
   const d = deckOf(deck_id)
+  if (!d) return (current = null) // e.g. a temporary deck that another session has removed
   const q = studyQueue(deck_id, tm)
   if (!q.cards.length) return (current = null)
   const card = q.cards[0]
@@ -490,13 +491,14 @@ export function overview(past_days = 126, future_days = 28) {
   const past = new Array(past_days).fill(0)
   const monthAgo = (tm.cutoff - 30 * 86400) * 1000
   let passed = 0, total = 0, timeSum = 0, timeN = 0
+  const failEase = features().hard_wrong ? 2 : 1
   for (const r of S.revlog.values()) {
     const ago = Math.floor((tm.cutoff - r.id / 1000 - 1) / 86400)
     if (ago < past_days) past[past_days - 1 - ago]++
     if (r.id > monthAgo) {
       timeSum += r.time
       timeN++
-      if (r.type === 1) { total++; if (r.ease > 1) passed++ }
+      if (r.type === 1) { total++; if (r.ease > failEase) passed++ }
     }
   }
   const future = new Array(future_days).fill(0)

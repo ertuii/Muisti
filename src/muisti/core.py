@@ -745,11 +745,15 @@ class Core:
     # ---------- optional features (stored in the collection, so they travel with backups and sync) ----------
     # keys keep the old "betteranki." prefix: renaming them would drop settings and exam dates from existing collections
 
-    _FEATURES = {"exams": False, "plan": False, "weak": False, "inbox": True}
+    _FEATURES = {"exams": False, "plan": False, "weak": False, "inbox": True, "hard_wrong": False}
 
     @_locked
     def features(self) -> dict:
         return {**self._FEATURES, **self._col.get_config("betteranki.features", {})}
+
+    def _fail_ease(self) -> int:
+        """The highest answer button that counts as wrong (the "hard_wrong" setting; scheduling is not affected)."""
+        return 2 if self.features()["hard_wrong"] else 1
 
     @_locked
     def theme(self) -> str:
@@ -856,35 +860,39 @@ class Core:
         """Retention of review answers per tag and per deck, weakest first."""
         names = {d.id: d.name for d in self._col.decks.all_names_and_ids()}
         rows = self._col.db.all(
-            "select n.tags, (case when c.odid then c.odid else c.did end), r.ease > 1 from revlog r "
+            "select n.tags, (case when c.odid then c.odid else c.did end), r.ease > ?, r.id from revlog r "
             "join cards c on c.id = r.cid join notes n on n.id = c.nid where r.id > ? and r.type = 1",
-            (self._col.sched.day_cutoff - days * 86400) * 1000,
+            self._fail_ease(), (self._col.sched.day_cutoff - days * 86400) * 1000,
         )
         groups = {}
-        for tags, did, ok in rows:
+        for tags, did, ok, rid in rows:
             name = names.get(did, "?")
             keys = [("tag", t) for t in tags.split() if t != self._INBOX_TAG]
             keys += [("deck", "::".join(name.split("::")[:i + 1])) for i in range(name.count("::") + 1)]
             for k in keys:
-                g = groups.setdefault(k, [0, 0])
+                g = groups.setdefault(k, [0, set()])
                 g[0] += ok
-                g[1] += 1
+                g[1].add(rid)
         total = len(rows)
         overall = round(100 * sum(r[2] for r in rows) / total) if total else None
         spots, seen = [], set()
-        for (k, n), (p, t) in sorted(groups.items(), key=lambda kv: kv[0][0] != "deck"):  # decks first
-            if t >= min_reviews and 100 * p / t < (overall or 0) and (p, t) not in seen:  # a tag covering exactly a deck once
-                seen.add((p, t))
+        for (k, n), (p, ids) in sorted(groups.items(), key=lambda kv: kv[0][0] != "deck"):  # decks first
+            t = len(ids)
+            if t >= min_reviews and 100 * p / t < (overall or 0) and (ids := frozenset(ids)) not in seen:  # a tag covering exactly a deck once
+                seen.add(ids)
                 spots.append({"kind": k, "name": n, "reviews": t, "retention": round(100 * p / t)})
         spots.sort(key=lambda x: (x["retention"], -x["reviews"]))
         return {"overall": overall, "reviews": total, "spots": spots[:10]}
 
     @_locked
-    def practice(self, kind: str, name: str) -> dict:
-        """Temporary deck with the cards of a tag/deck that were forgotten lately or often."""
-        scope = f'"tag:{name}"' if kind == "tag" else f'"deck:{name}"'
+    def practice(self, kind: str, name: str, days: int = 90) -> dict:
+        """Temporary deck with the cards of a tag/deck answered wrong in the last `days` days (the period the
+        weak spots were counted over) or forgotten often."""
+        escaped = re.sub(r'(["*_\\])', r"\\\1", name)
+        scope = f'"tag:{escaped}"' if kind == "tag" else f'"deck:{escaped}"'
+        wrong = " OR ".join(f"rated:{days}:{e}" for e in range(1, self._fail_ease() + 1))
         title = f"Üben: {name.split('::')[-1]}"
-        did = self._temp_deck(title, f"{scope} -is:suspended -is:new (rated:90:1 OR prop:lapses>=2)", 4)  # 4 = most lapses
+        did = self._temp_deck(title, f"{scope} -is:suspended -is:new ({wrong} OR prop:lapses>=2)", 4)  # 4 = most lapses
         if not did:
             raise ValueError("Keine vergessenen Karten zum Üben gefunden.")
         return {"deck_id": did, "name": title, "count": len(self._col.decks.cids(did))}
@@ -1162,7 +1170,7 @@ class Core:
             streak += 1
         month_ago = (cutoff - 30 * 86400) * 1000
         passed, total, secs = db.first(
-            "select sum(ease > 1), count(), sum(time) / 1000.0 from revlog where id > ? and type = 1", month_ago
+            "select sum(ease > ?), count(), sum(time) / 1000.0 from revlog where id > ? and type = 1", self._fail_ease(), month_ago
         ) or (0, 0, 0)
         avg_secs = (db.scalar("select avg(time) / 1000.0 from revlog where id > ?", month_ago) or 10)
         due = sum(d["new"] + d["learn"] + d["review"] for d in self.decks())
@@ -1227,11 +1235,34 @@ class Core:
             retention[k] = {"pct": round(100 * passed / total, 1) if total else None, "total": total}
 
         cc = g.get("cardCounts", {}).get("includingInactive", {})
+        hours = [{"total": h.get("total", 0), "correct": h.get("correct", 0)} for h in g.get("hours", {}).get(period, [])]
+        correct_today = today.get("correctCount", 0)
+        hard_wrong = self.features()["hard_wrong"]
+        if hard_wrong:  # Anki's graphs count Hard as passed: take those answers out again
+            import datetime
+
+            ids = ",".join(map(str, self._col.decks.deck_and_child_ids(deck_id))) if deck_id else ""
+            only = f" and (c.did in ({ids}) or c.odid in ({ids}))" if ids else ""
+            hard = self._col.db.all(f"select r.id, r.type from revlog r join cards c on c.id = r.cid where r.ease = 2{only}")
+            cutoff = self._col.sched.day_cutoff
+            ago = lambda rid: (cutoff - rid // 1000 - 1) // 86400  # 0 = today
+            correct_today -= sum(ago(rid) == 0 for rid, _ in hard)
+            for rid, _ in hard:
+                if hours and ago(rid) < days:
+                    h = hours[datetime.datetime.fromtimestamp(rid / 1000).hour]
+                    h["correct"] = max(0, h["correct"] - 1)
+            windows = {"today": (0, 1), "yesterday": (1, 2), "week": (0, 7), "month": (0, 30), "year": (0, 365), "allTime": (0, 10**9)}
+            for k, r in retention.items():
+                lo, hi = windows.get(k, (0, 0))
+                if r["total"]:
+                    wrong = sum(kind == 1 and lo <= ago(rid) < hi for rid, kind in hard)
+                    r["pct"] = max(0.0, round(r["pct"] - 100 * wrong / r["total"], 1))
         return {
+            "hard_wrong": hard_wrong,
             "today": {
                 "answered": answered,
                 "minutes": round(today.get("answerMillis", 0) / 60000, 1),
-                "correct_pct": round(100 * today.get("correctCount", 0) / answered) if answered else None,
+                "correct_pct": round(100 * max(0, correct_today) / answered) if answered else None,
                 "learn": today.get("learnCount", 0), "review": today.get("reviewCount", 0),
                 "relearn": today.get("relearnCount", 0),
             },
@@ -1240,7 +1271,7 @@ class Core:
             "intervals": intervals,
             "card_counts": {k: cc.get(src, 0) for k, src in [("new", "newCards"), ("learn", "learn"), ("relearn", "relearn"),
                             ("young", "young"), ("mature", "mature"), ("suspended", "suspended"), ("buried", "buried")]},
-            "hours": [{"total": h.get("total", 0), "correct": h.get("correct", 0)} for h in g.get("hours", {}).get(period, [])],
+            "hours": hours,
             "buttons": {k: v for k, v in g.get("buttons", {}).get(period, {}).items()},
             "retention": retention,
         }

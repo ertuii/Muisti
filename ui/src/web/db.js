@@ -50,7 +50,7 @@ function persist() {
 /** Write the cache now, e.g. before a reload (the debounced one would be lost). */
 export function save() {
   clearTimeout(saveTimer)
-  const snap = { v: 2, usn, pending, tables: Object.fromEntries(TABLES.map((t) => [t, [...S[t].values()]])) }
+  const snap = { v: 3, usn, pending, tables: Object.fromEntries(TABLES.map((t) => [t, [...S[t].values()]])) }
   return idbDo('readwrite', (s) => s.put(snap, uid)).catch((e) => console.warn('cache', e))
 }
 
@@ -69,8 +69,9 @@ export async function open(userId) {
   try {
     const snap = await idbDo('readonly', (s) => s.get(uid))
     if (snap) pending = snap.pending
-    // v 2: caches of 0.14.1 and older can miss rows (the pull could skip some), they load everything again
-    if (snap?.v === 2) {
+    // v 3: caches of 0.14.1 and older can miss rows (the pull could skip some), those of 0.14.2 this device's own
+    // rows (it reloaded without them): they load everything again
+    if (snap?.v === 3) {
       usn = snap.usn
       for (const t of TABLES) for (const r of snap.tables[t]) take(t, r)
     }
@@ -94,7 +95,9 @@ export async function pull() {
   const fetched = await Promise.all(TABLES.map(async (t) => { // one request per table, all at once
     const rows = []
     for (let after = usn; ;) {
-      const { data, error } = await sb.from(t).select('*').gt('usn', after).lte('usn', top).neq('device', device).order('usn').limit(1000)
+      const q = sb.from(t).select('*').gt('usn', after).lte('usn', top)
+      // nothing here yet (usn 0): our own earlier rows too, they are only skipped because a cache already has them
+      const { data, error } = await (usn ? q.neq('device', device) : q).order('usn').limit(1000)
       if (error) throw new Error(error.message)
       rows.push(...data)
       if (data.length) after = data[data.length - 1].usn

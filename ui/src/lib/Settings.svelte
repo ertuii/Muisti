@@ -398,6 +398,9 @@
             <span><b>{x.name}</b><small class="muted">{x.hint}</small></span>
           </label>
         {/each}
+        <label class="extra"><input type="checkbox" bind:checked={features.hard_wrong} onchange={saveFeatures} />
+          <span><b>{t('„Schwer“ als falsch werten')}</b><small class="muted">{t('Antworten mit „Schwer“ zählen in Statistik und Schwachstellen als falsch und kommen beim Üben dran. Wann Karten wieder fällig werden, ändert sich nicht.')}</small></span>
+        </label>
         <label class="extra"><input type="checkbox" bind:checked={features.inbox} onchange={saveFeatures} />
           <span><b>{t('Karten von Claude erst prüfen')}</b><small class="muted">{t('Neue Karten von Claude warten im Eingang, bis du sie übernimmst. Ausgeschaltet werden sie sofort gelernt.')}</small></span>
         </label>
@@ -658,7 +661,7 @@
     <h2>{t('Version')}</h2>
     <div class="row">
       <span class="num">Muisti {version}</span>
-      <button class="ghost sm" disabled={checking} onclick={lookForUpdate}>{checking ? t('Suche …') : t('Nach Updates suchen')}</button>
+      {#if !web}<button class="ghost sm" disabled={checking} onclick={lookForUpdate}>{checking ? t('Suche …') : t('Nach Updates suchen')}</button>{/if}
     </div>
     <p class="muted small">{web ? t('Gibt es eine neue Version, erscheint links „Aktualisieren“: ein Klick lädt die Seite neu.') : t('Die App sucht beim Start selbst nach neuen Versionen. Deine Karten bleiben beim Update unberührt.')}</p>
     <p class="muted small"><a href="https://muisti.de/impressum.html" target="_blank" rel="noopener">{t('Impressum')}</a> · <a href="https://muisti.de/datenschutz.html" target="_blank" rel="noopener">{t('Datenschutz')}</a></p>
