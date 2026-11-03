@@ -1,4 +1,4 @@
-import { cpSync, readFileSync, writeFileSync } from 'node:fs'
+import { cpSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { defineConfig } from 'vite'
 
@@ -19,12 +19,18 @@ export default defineConfig(({ mode }) => {
           // open tabs compare this with their own version and offer a reload (web/core.js check_update)
           if (mode === 'web') {
             writeFileSync(`${outDir}/version.json`, JSON.stringify({ version }))
+            // offline (public/sw.js): this build's files, so a deploy also replaces the service worker and its cache
+            const assets = readdirSync(`${outDir}/assets`).map((f) => `/assets/${f}`)
+            const sw = readFileSync(`${outDir}/sw.js`, 'utf8')
+              .replace("const VERSION = 'dev'", `const VERSION = ${JSON.stringify(`${version}-${Date.now()}`)}`)
+              .replace('const ASSETS = []', `const ASSETS = ${JSON.stringify(assets)}`)
+            writeFileSync(`${outDir}/sw.js`, sw)
             // Vercel serves the folder as is: never cache the entry points, hashed assets forever
             writeFileSync(`${outDir}/vercel.json`, JSON.stringify({
               // the worker (web-api/, added by web-api/bundle.sh): a cold start pulls a whole collection once
               functions: {
-                'api/worker.py': { maxDuration: 300, excludeFiles: '{assets/**,katex/**,index.html,icon.svg,version.json}' },
-                'api/connector.py': { maxDuration: 300, excludeFiles: '{assets/**,katex/**,index.html,icon.svg,version.json}' },
+                'api/worker.py': { maxDuration: 300, excludeFiles: '{assets/**,katex/**,index.html,icon*,version.json,sw.js,manifest.webmanifest}' },
+                'api/connector.py': { maxDuration: 300, excludeFiles: '{assets/**,katex/**,index.html,icon*,version.json,sw.js,manifest.webmanifest}' },
               },
               // Claude's connector (web-api/connector.py) at a short address; the consent page is the app itself
               rewrites: [
@@ -33,7 +39,7 @@ export default defineConfig(({ mode }) => {
                 { source: '/oauth/consent', destination: '/index.html' },
               ],
               headers: [
-                { source: '/(index.html|version.json)?', headers: [{ key: 'Cache-Control', value: 'no-store' }] },
+                { source: '/(index.html|version.json|sw.js|manifest.webmanifest)?', headers: [{ key: 'Cache-Control', value: 'no-store' }] },
                 { source: '/assets/(.*)', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
               ],
             }))

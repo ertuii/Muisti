@@ -66,6 +66,7 @@ export async function open(userId) {
   for (const t of TABLES) S[t].clear()
   usn = 0
   pending = []
+  let cached = false
   try {
     const snap = await idbDo('readonly', (s) => s.get(uid))
     if (snap) pending = snap.pending
@@ -74,11 +75,18 @@ export async function open(userId) {
     if (snap?.v === 3) {
       usn = snap.usn
       for (const t of TABLES) for (const r of snap.tables[t]) take(t, r)
+      cached = true
     }
   } catch (e) {
     console.warn('cache', e) // private window etc.: load everything from the server
   }
-  await pull()
+  try {
+    await pull()
+  } catch (e) {
+    if (!cached) throw e
+    console.warn('offline, using the cache', e) // App.svelte's cloudSync catches up once online
+    return
+  }
   if (!S.notetypes.size) await seed()
 }
 

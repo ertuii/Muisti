@@ -18,15 +18,22 @@ async function start() {
 
 if (import.meta.env.MODE === 'web') {
   // web: sign in first, then load the collection from Supabase (src/web/db.js)
+  navigator.serviceWorker?.register('/sw.js').catch((e) => console.warn('sw', e)) // offline: public/sw.js
   const { sb, open } = await import('./web/db.js')
-  const { data } = await sb.auth.getSession()
+  const { data, error } = await sb.auth.getSession()
+  // offline with an expired token the refresh fails: that is no logout, keep studying from the cache (web/db.js)
+  let user = data.session?.user.id
+  try {
+    if (user) localStorage.setItem('muisti-user', user)
+    else if (error) user = localStorage.getItem('muisti-user')
+  } catch {}
   if (location.pathname === '/oauth/consent') {
     // Claude asks for access (web-api/connector.py); Login reloads this same address once signed in
     setLang(null)
     const { default: page } = await (data.session ? import('./lib/Consent.svelte') : import('./lib/Login.svelte'))
     mount(page, { target })
-  } else if (data.session) {
-    await open(data.session.user.id)
+  } else if (user) {
+    await open(user)
     await start()
     // the worker loads the collection once per server instance: do it now, not when statistics are first opened
     setTimeout(() => import('./web/core.js').then((c) => c.worker('warm')).catch(() => {}), 1500)

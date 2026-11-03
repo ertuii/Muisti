@@ -294,6 +294,7 @@
   {:else if card}
     <div class="card-area">
       <CardFrame html={revealed ? answerHtml : card.question} css={card.css} ord={card.ord} onkey={onKey} ontyped={(t) => (typed = t)}
+        onswipe={(s) => (!revealed ? s === 'tap' && reveal() : s === 'left' ? answer(1) : s === 'right' && answer(3))}
         autoplay={card.study.autoplay} hideAudio={prefs.hide_audio_play_buttons} />
     </div>
     <footer>

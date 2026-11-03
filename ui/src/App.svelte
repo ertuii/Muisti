@@ -110,6 +110,7 @@
   cloudSync()
   // web: the desktop's changes arrive within a minute, and right away when the tab comes back
   setInterval(cloudSync, (web ? 1 : 5) * 60 * 1000)
+  if (web) addEventListener('online', cloudSync) // answers given offline go out right away
   if (web) document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && cloudSync())
   // app.py calls this after Claude changed something; an edited note may be the card being studied
   ;/** @type {any} */ (window).__baRefresh = (method) => {

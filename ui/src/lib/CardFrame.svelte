@@ -1,7 +1,7 @@
 <script>
   // Renders card HTML/CSS (user content) isolated in a sandboxed iframe without same-origin,
   // so card scripts can't reach the app API. Media resolves from /media/. Keys are forwarded via postMessage.
-  let { html, css, ord = 0, onkey = null, ontyped = null, autoplay = true, hideAudio = false } = $props()
+  let { html, css, ord = 0, onkey = null, ontyped = null, onswipe = null, autoplay = true, hideAudio = false } = $props()
 
   let frame = $state()
   const dark = document.documentElement.dataset.theme === 'dark'
@@ -42,6 +42,18 @@
     parent.postMessage({ key: e.key, code: e.code, meta: e.metaKey || e.ctrlKey, alt: e.altKey, shift: e.shiftKey }, '*')
   })
   addEventListener('input', (e) => e.target.id === 'typeans' && parent.postMessage({ typed: e.target.value }, '*'))
+  // phone: tap and horizontal swipes go to the reviewer (Study.svelte); vertical moves stay scrolling
+  // ponytail: no drag animation, the card just changes; add one if swipes feel too blind
+  let touch = null
+  addEventListener('touchstart', (e) => { touch = e.touches.length === 1 ? e.touches[0] : null }, { passive: true })
+  addEventListener('touchend', (e) => {
+    const t = e.changedTouches[0], dx = touch ? t.clientX - touch.clientX : 0, dy = touch ? t.clientY - touch.clientY : 0
+    if (!touch) return
+    touch = null
+    if (Math.abs(dx) > 60 && Math.abs(dx) > 2 * Math.abs(dy)) parent.postMessage({ swipe: dx < 0 ? 'left' : 'right' }, '*')
+    else if (Math.abs(dx) < 10 && Math.abs(dy) < 10 && !e.target.closest('a,button,input,textarea,select,audio,video,canvas,.ba-tts,#toggle,[onclick]'))
+      parent.postMessage({ swipe: 'tap' }, '*')
+  })
   // Anki's default card style centers the text: a centered list would put its bullets far from the words,
   // so it is centered as a block with its items left-aligned
   addEventListener('DOMContentLoaded', () => document.querySelectorAll('ul,ol').forEach((l) => getComputedStyle(l).textAlign === 'center' && l.classList.add('ba-centered')))
@@ -97,6 +109,7 @@
   function onMessage(e) {
     if (e.source !== frame?.contentWindow) return
     if (typeof e.data?.typed === 'string') return ontyped?.(e.data.typed)
+    if (typeof e.data?.swipe === 'string') return onswipe?.(e.data.swipe)
     if (!onkey || typeof e.data?.key !== 'string') return
     onkey({ key: e.data.key, code: e.data.code, metaKey: e.data.meta, ctrlKey: false, altKey: e.data.alt, shiftKey: e.data.shift, preventDefault() {} })
   }
