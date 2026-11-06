@@ -764,5 +764,7 @@
  "„Normal“ ist der Wert für jeden Tag, „Nur heute“ gilt bis morgen.": "“Normal” is the value for every day, “Today only” applies until tomorrow.",
  "Themen (Tags) und Stapel, bei denen du weniger Wiederholungen richtig beantwortest als im Durchschnitt ({n} %, der Strich). Schwächste zuerst. „Üben“ zeigt nur die Karten, die du falsch beantwortet oder oft vergessen hast; ihre Zahl steht auf dem Button.": "Topics (tags) and decks where you answer fewer reviews correctly than on average ({n} %, the line). Weakest first. “Practice” shows only the cards you got wrong or often forget; their number is on the button.",
  "{n} von {m} falsch": "{n} of {m} wrong",
- "{n} Karten üben": "Practice {n} cards"
+ "{n} Karten üben": "Practice {n} cards",
+ "Farbe ändern": "Change color",
+ "Standardfarbe": "Default color"
 }

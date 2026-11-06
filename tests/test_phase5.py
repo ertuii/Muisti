@@ -58,6 +58,23 @@ p = core.practice("tag", "zelle")
 assert p["count"] == 20
 core.end_prelearn(p["deck_id"])
 assert not col.decks.by_name("Üben: zelle")
+# weak spots of one deck: only its reviews count
+andere = col.decks.id("Andere")
+assert core.weak_spots(90, andere) == {"overall": None, "reviews": 0, "spots": []}
+assert core.weak_spots(90, bio)["spots"][0]["name"] == "zelle"
+p = core.practice("tag", "zelle", 90, bio)
+assert p["count"] == 20
+core.end_prelearn(p["deck_id"])
+# deck colors: stored per deck, cleared with None, nothing but #rrggbb
+core.set_deck_color(bio, "#a8c8f0")
+assert next(d for d in core.decks() if d["id"] == bio)["color"] == "#a8c8f0"
+core.set_deck_color(bio, None)
+assert next(d for d in core.decks() if d["id"] == bio)["color"] is None
+try:
+    core.set_deck_color(bio, "red; x")
+    raise AssertionError("bad color accepted")
+except ValueError:
+    pass
 
 core.save_features({"hard_wrong": True})  # "Schwer" counts as wrong: the same answers now pull the average down
 rid = (col.sched.day_cutoff - 86400) * 1000 + 1000

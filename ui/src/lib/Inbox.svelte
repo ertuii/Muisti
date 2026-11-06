@@ -36,7 +36,7 @@
     return m ? { cloze: m[1] } : { text: p }
   })
 
-  const hue = (deck) => hueFor(flat.find((d) => d.name === deck)?.top ?? 0)
+  const hue = (deck) => flat.find((d) => d.name === deck)?.hue ?? hueFor(0)
 
   load()
   // new cards from Claude arrive while this page is open

@@ -79,12 +79,13 @@ const countsFor = (id, tm) => studyQueue(id, tm).counts
 export function decks() {
   const tm = t()
   const all = [...S.decks.values()].map((r) => r.data).sort((a, b) => a.name.localeCompare(b.name, 'de'))
+  const colors = cfg('betteranki.colors', {})
   const byName = new Map()
   const roots = []
   for (const d of all) {
     if (d.id === 1 && all.length > 1 && !cardsIn(new Set([1])).length) continue // Anki hides an empty Default
     const c = countsFor(d.id, tm)
-    const node = { id: d.id, name: d.name, short: d.name.split('::').pop(), ...c, collapsed: !!d.collapsed, filtered: !!d.dyn, children: [] }
+    const node = { id: d.id, name: d.name, short: d.name.split('::').pop(), ...c, collapsed: !!d.collapsed, filtered: !!d.dyn, color: colors[d.id] ?? null, children: [] }
     byName.set(d.name, node)
     const parent = byName.get(d.name.split('::').slice(0, -1).join('::'))
     ;(parent ? parent.children : roots).push(node)
@@ -119,6 +120,11 @@ export function delete_deck(deck_id) {
   const ids = subtree(deck_id)
   delete_notes([...new Set(cardsIn(ids).map((c) => c.nid))])
   write('decks', [...ids].filter((id) => id !== 1).map((id) => ({ id, mod: now(), data: deckOf(id), deleted: true })))
+}
+
+export function set_deck_color(deck_id, color) {
+  const { [deck_id]: _, ...rest } = cfg('betteranki.colors', {})
+  setCfg('betteranki.colors', color ? { ...rest, [deck_id]: color } : rest)
 }
 
 export function set_collapsed(deck_id, collapsed) {

@@ -25,6 +25,8 @@ export const api = new Proxy({}, {
 // One fixed marker hue per top-level deck, derived from its id so it never shifts.
 const HUES = ['red', 'blue', 'green', 'ochre', 'violet', 'teal', 'pink']
 export const hueFor = (topId) => `var(--m-${HUES[Number(BigInt(topId) % 7n)]})`
+// what a top-level deck's chip can be changed to on "Heute" (core.set_deck_color)
+export const PASTELS = ['#f4a7a1', '#f7c59f', '#f3e09b', '#b5dfa6', '#9fd8cf', '#a8c8f0', '#c6b4ee', '#f2b5d4']
 
 // Anki's card flags (0 = none); labels go through t()
 export const FLAG_COLORS = [
@@ -38,11 +40,12 @@ export const FLAG_COLORS = [
   { n: 7, label: 'Violett', color: 'var(--m-violet)' },
 ]
 
-// Deck tree -> flat rows with depth and the top-level id (for the hue).
+// Deck tree -> flat rows with depth, the top-level id and its hue (the chosen color, else the fixed one).
 export function flatten(decks, depth = 0, top = null, out = []) {
   for (const d of decks) {
-    out.push({ ...d, depth, top: top ?? d.id })
-    flatten(d.children, depth + 1, top ?? d.id, out)
+    const t = top ?? d
+    out.push({ ...d, depth, top: t.id, hue: t.color || hueFor(t.id) })
+    flatten(d.children, depth + 1, t, out)
   }
   return out
 }

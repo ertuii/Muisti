@@ -764,5 +764,7 @@
  "„Normal“ ist der Wert für jeden Tag, „Nur heute“ gilt bis morgen.": "«Normal» es el valor de cada día, «Solo hoy» se aplica hasta mañana.",
  "Themen (Tags) und Stapel, bei denen du weniger Wiederholungen richtig beantwortest als im Durchschnitt ({n} %, der Strich). Schwächste zuerst. „Üben“ zeigt nur die Karten, die du falsch beantwortet oder oft vergessen hast; ihre Zahl steht auf dem Button.": "Temas (etiquetas) y mazos en los que aciertas menos repasos que la media ({n} %, la línea). Los más débiles primero. «Practicar» muestra solo las tarjetas que fallaste u olvidas a menudo; su número aparece en el botón.",
  "{n} von {m} falsch": "{n} de {m} incorrectas",
- "{n} Karten üben": "Practicar {n} tarjetas"
+ "{n} Karten üben": "Practicar {n} tarjetas",
+ "Farbe ändern": "Cambiar color",
+ "Standardfarbe": "Color predeterminado"
 }

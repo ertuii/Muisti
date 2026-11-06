@@ -1,6 +1,6 @@
 <script>
-  import { CalendarDays, Plus, Search, Download, ChartColumn, Shapes, Settings as Gear, Inbox as InboxIcon, GraduationCap, Ellipsis } from '@lucide/svelte'
-  import { api, flatten, hueFor, total, web } from './lib/api.js'
+  import { CalendarDays, Plus, Search, Download, ChartColumn, Shapes, Settings as Gear, Inbox as InboxIcon, GraduationCap, Ellipsis, RefreshCw } from '@lucide/svelte'
+  import { api, flatten, total, web } from './lib/api.js'
   import { t, tmsg } from './lib/i18n.js'
   import Today from './lib/Today.svelte'
   import Study from './lib/Study.svelte'
@@ -39,8 +39,33 @@
     }
   }
 
+  let linked = $state(web) // a Muisti account is connected (the web app always has one)
+  let syncing = $state(false)
+  let openDecks = $state(new Set()) // top-level decks unfolded in the rail
+
   async function refresh() {
     ;[decks, overview] = await Promise.all([api.decks(), api.overview()])
+    if (!web) api.cloud_account().then((a) => (linked = !!a), () => {})
+  }
+
+  async function syncNow() {
+    if (syncing) return
+    syncing = true
+    try {
+      const r = await api.cloud_sync()
+      notify(r.sent || r.received || r.media ? t('Synchronisiert: {sent} gesendet, {received} empfangen', r) : t('Alles aktuell'))
+      await refresh()
+    } catch (e) {
+      notify(String(e?.message ?? e), true)
+    } finally {
+      syncing = false
+    }
+  }
+
+  function toggleDeck(id) {
+    const s = new Set(openDecks)
+    s.has(id) ? s.delete(id) : s.add(id)
+    openDecks = s
   }
 
   function notify(text, error = false) {
@@ -84,8 +109,8 @@
     if (r) go('study', { deckId: r.deck_id, deckName: r.name, temporary: true })
   }
 
-  async function practice(kind, name, days) {
-    const r = await run(() => api.practice(kind, name, days))
+  async function practice(kind, name, days, deckId) {
+    const r = await run(() => api.practice(kind, name, days, deckId))
     if (r) go('study', { deckId: r.deck_id, deckName: r.name, temporary: true, practice: true })
   }
 
@@ -124,7 +149,12 @@
 {#if mac}<div class="titlebar pywebview-drag-region" aria-hidden="true"></div>{/if}
 <div class="shell" class:mac class:studying={view.name === 'study'}>
   <aside>
-    <div class="brand"><img src="/icon.svg" alt="" width="28" height="28" />Muisti</div>
+    <div class="brand">
+      <img src="/icon.svg" alt="" width="28" height="28" />Muisti
+      {#if linked}
+        <button class="plain sync" class:spin={syncing} disabled={syncing} onclick={syncNow} aria-label={t('Jetzt synchronisieren')} title={t('Jetzt synchronisieren')}><RefreshCw size={15} /></button>
+      {/if}
+    </div>
     <nav>
       <button class="nav" class:on={view.name === 'today'} onclick={() => go('today')}><CalendarDays size={17} />{t('Heute')}</button>
       <button class="nav" class:on={view.name === 'add'} onclick={() => go('add')}><Plus size={17} />{t('Hinzufügen')}</button>
@@ -141,12 +171,19 @@
     </nav>
     <div class="label">{t('Stapel')}</div>
     <nav class="decks">
-      {#each flat.filter((d) => d.depth === 0) as d (d.id)}
-        <button class="nav" onclick={() => go('study', { deckId: d.id, deckName: d.name })} title={t('{name} lernen', { name: d.name })}>
-          <span class="chip" style:background={hueFor(d.top)}></span>
-          <span class="name">{d.name}</span>
-          <span class="count num">{total(d) || ''}</span>
-        </button>
+      {#each flat.filter((d) => d.depth === 0 || openDecks.has(d.top)) as d (d.id)}
+        <div class="deckrow" style:padding-left="{Math.max(0, d.depth - 1) * 14}px">
+          {#if d.depth === 0 && d.children.length}
+            <button class="plain fold" aria-expanded={openDecks.has(d.id)} aria-label={openDecks.has(d.id) ? t('Zuklappen') : t('Aufklappen')} title={openDecks.has(d.id) ? t('Zuklappen') : t('Aufklappen')} onclick={() => toggleDeck(d.id)}>
+              <span class="chip" class:open={openDecks.has(d.id)} style:background={d.hue}></span>
+            </button>
+          {/if}
+          <button class="nav" class:sub={d.depth} onclick={() => go('study', { deckId: d.id, deckName: d.name })} title={t('{name} lernen', { name: d.name })}>
+            {#if d.depth === 0 && !d.children.length}<span class="chip" style:background={d.hue}></span>{/if}
+            <span class="name">{d.depth ? d.short : d.name}</span>
+            <span class="count num">{total(d) || ''}</span>
+          </button>
+        </div>
       {/each}
     </nav>
     {#if update}
@@ -169,6 +206,7 @@
       <button class="plain" onclick={() => go('notetypes')}><Shapes size={18} />{t('Notiztypen')}</button>
       <button class="plain" onclick={() => go('settings')}><Gear size={18} />{t('Einstellungen')}</button>
       <button class="plain" onclick={importFile}><Download size={18} />{t('Importieren')}</button>
+      {#if linked}<button class="plain" disabled={syncing} onclick={syncNow}><RefreshCw size={18} />{syncing ? t('Synchronisiere …') : t('Jetzt synchronisieren')}</button>{/if}
     </div>
   </aside>
 
@@ -235,6 +273,17 @@
   }
   .brand { font-weight: 800; font-size: 18px; letter-spacing: -0.02em; padding: 0 10px 22px 4px; display: flex; align-items: center; gap: 8px; }
   .brand img { margin: -3px; }
+  .sync { margin-left: auto; width: 28px; height: 28px; padding: 0; justify-content: center; color: var(--ink-3); }
+  .sync:disabled { opacity: 1; }
+  .sync.spin :global(svg) { animation: spin 900ms linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .deckrow { display: flex; align-items: center; }
+  .fold { width: 28px; height: 34px; padding: 0 0 0 10px; flex: none; justify-content: flex-start; }
+  .fold + .nav { padding-left: 0; }
+  .fold .chip { transition: transform 160ms var(--ease), border-radius 160ms var(--ease); }
+  .fold:hover .chip { transform: scale(1.3); }
+  .fold .chip.open { border-radius: 50%; }
+  .nav.sub { color: var(--ink-2); font-size: 13px; padding-left: 42px; }
   nav { display: flex; flex-direction: column; gap: 2px; }
   .nav {
     background: transparent; color: var(--ink); border: 0; font-weight: 500;

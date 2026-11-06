@@ -116,6 +116,8 @@ class Core:
 
     @_locked
     def decks(self) -> list[dict]:
+        colors = self._col.get_config(self._COLORS, {})
+
         def walk(node, prefix=""):
             name = f"{prefix}::{node.name}" if prefix else node.name
             return {
@@ -127,11 +129,21 @@ class Core:
                 "review": node.review_count,
                 "collapsed": node.collapsed,
                 "filtered": node.filtered,
+                "color": colors.get(str(node.deck_id)),
                 "children": [walk(c, name) for c in node.children],
             }
 
         root = self._col.sched.deck_due_tree()
         return [walk(c) for c in root.children]
+
+    _COLORS = "betteranki.colors"  # {deck_id: "#rrggbb"}, synced like any config key
+
+    @_locked
+    def set_deck_color(self, deck_id: int, color: str | None) -> None:
+        if color is not None and not re.fullmatch(r"#[0-9a-fA-F]{6}", color):
+            raise ValueError(color)
+        colors = {k: v for k, v in self._col.get_config(self._COLORS, {}).items() if k != str(deck_id)}
+        self._col.set_config(self._COLORS, {**colors, **({str(deck_id): color} if color else {})})
 
     @_locked
     def create_deck(self, name: str) -> int:
@@ -918,14 +930,17 @@ class Core:
     # ---------- 3. weak spots ----------
 
     @_locked
-    def weak_spots(self, days: int = 90, min_reviews: int = 10) -> dict:
-        """Retention of review answers per tag and per deck, weakest first."""
+    def weak_spots(self, days: int = 90, deck_id: int | None = None, min_reviews: int = 10) -> dict:
+        """Retention of review answers per tag and per deck, weakest first; deck_id limits it to that subtree."""
         names = {d.id: d.name for d in self._col.decks.all_names_and_ids()}
         rows = self._col.db.all(
             "select n.tags, (case when c.odid then c.odid else c.did end), r.ease > ?, r.id from revlog r "
             "join cards c on c.id = r.cid join notes n on n.id = c.nid where r.id > ? and r.type = 1",
             self._fail_ease(), (self._col.sched.day_cutoff - days * 86400) * 1000,
         )
+        if deck_id:
+            within = set(self._col.decks.deck_and_child_ids(deck_id))
+            rows = [r for r in rows if r[1] in within]
         groups = {}
         for tags, did, ok, rid in rows:
             name = names.get(did, "?")
@@ -946,21 +961,23 @@ class Core:
         spots.sort(key=lambda x: (x["retention"], -x["reviews"]))
         spots = spots[:10]
         for s in spots:  # what "practice" would gather, so the screen can say so
-            s["cards"] = len(self._col.find_cards(self._practice_search(s["kind"], s["name"], days)))
+            s["cards"] = len(self._col.find_cards(self._practice_search(s["kind"], s["name"], days, deck_id)))
         return {"overall": overall, "reviews": total, "spots": spots}
 
-    def _practice_search(self, kind: str, name: str, days: int) -> str:
-        escaped = re.sub(r'(["*_\\])', r"\\\1", name)
-        scope = f'"tag:{escaped}"' if kind == "tag" else f'"deck:{escaped}"'
+    def _practice_search(self, kind: str, name: str, days: int, deck_id: int | None = None) -> str:
+        esc = lambda n: re.sub(r'(["*_\\])', r"\\\1", n)
+        scope = f'"tag:{esc(name)}"' if kind == "tag" else f'"deck:{esc(name)}"'
+        if deck_id and kind == "tag":  # a tag's weak spot within the chosen deck
+            scope += f' "deck:{esc(self._col.decks.name(deck_id))}"'
         wrong = " OR ".join(f"rated:{days}:{e}" for e in range(1, self._fail_ease() + 1))
         return f"{scope} -is:suspended -is:buried -is:new ({wrong} OR prop:lapses>=2)"
 
     @_locked
-    def practice(self, kind: str, name: str, days: int = 90) -> dict:
+    def practice(self, kind: str, name: str, days: int = 90, deck_id: int | None = None) -> dict:
         """Temporary deck with the cards of a tag/deck answered wrong in the last `days` days (the period the
         weak spots were counted over) or forgotten often."""
         title = f"Üben: {name.split('::')[-1]}"
-        did = self._temp_deck(title, self._practice_search(kind, name, days), 4, resched=False)  # 4 = most lapses; practice leaves the schedule alone
+        did = self._temp_deck(title, self._practice_search(kind, name, days, deck_id), 4, resched=False)  # 4 = most lapses; practice leaves the schedule alone
         if not did:
             raise ValueError("Keine vergessenen Karten zum Üben gefunden.")
         return {"deck_id": did, "name": title, "count": len(self._col.decks.cids(did))}

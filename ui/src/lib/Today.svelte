@@ -1,6 +1,6 @@
 <script>
   import { ChevronRight, Ellipsis } from '@lucide/svelte'
-  import { api, hueFor, total, web } from './api.js'
+  import { api, PASTELS, total, web } from './api.js'
   import Strip from './Strip.svelte'
   import AnkiMigration from './AnkiMigration.svelte'
   import { lang, t } from './i18n.js'
@@ -162,7 +162,19 @@
                   <button class="plain twist" class:open={!d.collapsed} aria-label={d.collapsed ? t('Aufklappen') : t('Zuklappen')}
                     onclick={() => run(() => api.set_collapsed(d.id, !d.collapsed))}><ChevronRight size={15} /></button>
                 {:else}<span class="twist"></span>{/if}
-                {#if d.depth === 0}<span class="chip" style:background={hueFor(d.top)}></span>{/if}
+                {#if d.depth === 0}
+                  <span class="menu-wrap">
+                    <button class="plain pick" aria-label={t('Farbe ändern')} title={t('Farbe ändern')} onclick={() => (menuFor = menuFor === `c${d.id}` ? null : `c${d.id}`)}><span class="chip" style:background={d.hue}></span></button>
+                    {#if menuFor === `c${d.id}`}
+                      <div class="menu swatches" role="menu">
+                        {#each PASTELS as c}
+                          <button class="plain sw" class:on={d.color === c} style:background={c} aria-label={c} onclick={() => { menuFor = null; run(() => api.set_deck_color(d.id, c)) }}></button>
+                        {/each}
+                        <button class="plain reset" onclick={() => { menuFor = null; run(() => api.set_deck_color(d.id, null)) }}>{t('Standardfarbe')}</button>
+                      </div>
+                    {/if}
+                  </span>
+                {/if}
                 {#if renaming === d.id}
                   <!-- svelte-ignore a11y_autofocus -->
                   <input bind:value={renameText} autofocus onblur={() => rename(d)}
@@ -280,6 +292,13 @@
   }
   .menu button { color: var(--ink); justify-content: flex-start; padding: 8px 10px; font-weight: 500; }
   .menu .del { color: var(--m-red); }
+  .pick { width: 22px; height: 22px; min-height: 0; padding: 0; justify-content: center; flex: none; }
+  .pick .chip { transition: transform 120ms var(--ease); }
+  .pick:hover .chip { transform: scale(1.3); }
+  .swatches { left: -6px; right: auto; min-width: 0; display: grid; grid-template-columns: repeat(4, 28px); gap: 6px; padding: 10px; }
+  .menu .sw { width: 28px; height: 28px; min-height: 0; padding: 0; border-radius: 7px; }
+  .menu .sw.on { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .menu .reset { grid-column: 1 / -1; justify-content: center; padding: 6px; font-size: 13px; color: var(--ink-2); }
   .empty { text-align: left; color: var(--ink-2); padding: 32px 12px; }
   .new-deck { padding-top: 16px; display: flex; gap: 8px; }
   .welcome { border: 1px solid var(--rule); border-radius: 12px; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px; max-width: 860px; }

@@ -1,6 +1,6 @@
 <script>
   import { untrack } from 'svelte'
-  import { Search, Flag, X } from '@lucide/svelte'
+  import { Search, Flag, X, ChevronUp, ChevronDown } from '@lucide/svelte'
   import { api, FLAG_COLORS } from './api.js'
   import Editor from './Editor.svelte'
   import CardInfo from './CardInfo.svelte'
@@ -125,6 +125,23 @@
     await bulk(() => api.delete_notes(noteIds), (n) => t('{n} Notizen gelöscht', { n }))
   }
 
+  // Column headers sort the loaded rows (ponytail: client-side, so only the first 1000 hits; sort in core.search if that bites)
+  const SORT_KEYS = {
+    sort: (r) => r.sort, deck: (r) => r.deck, notetype: (r) => r.notetype, tags: (r) => r.tags.join(' '),
+    ivl: (r) => (r.due != null ? -1 : r.interval || 0), reps: (r) => r.reps,
+  }
+  let sortBy = $state(null) // { key, dir: 1 | -1 }
+  const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
+  const shown = $derived.by(() => {
+    if (!sortBy) return rows
+    const k = SORT_KEYS[sortBy.key]
+    return [...rows].sort((a, b) => {
+      const [x, y] = [k(a), k(b)]
+      return sortBy.dir * (typeof x === 'number' ? x - y : collator.compare(x ?? '', y ?? ''))
+    })
+  })
+  const sortOn = (key) => (sortBy = sortBy?.key === key ? { key, dir: -sortBy.dir } : { key, dir: 1 })
+
   const flagColor = (n) => FLAGS[n]?.color
   const ivl = (r) => (r.due != null ? t('neu') : r.interval ? t('{n} T', { n: r.interval }) : t('lernt'))
 
@@ -136,6 +153,14 @@
 </script>
 
 <svelte:window onkeydown={onKey} />
+
+{#snippet head(key, label, cls = '')}
+  <th class={cls} aria-sort={sortBy?.key === key ? (sortBy.dir > 0 ? 'ascending' : 'descending') : 'none'}>
+    <button class="plain th-sort" onclick={() => sortOn(key)}>
+      {label}{#if sortBy?.key === key}{#if sortBy.dir > 0}<ChevronUp size={13} />{:else}<ChevronDown size={13} />{/if}{/if}
+    </button>
+  </th>
+{/snippet}
 
 <div class="browser">
   <div class="list">
@@ -179,10 +204,10 @@
     <div class="table-wrap" class:loading>
       <table>
         <thead>
-          <tr><th class="cb"><input type="checkbox" checked={allSelected} indeterminate={selected.size > 0 && !allSelected} onclick={toggleAll} aria-label={t('Alle auswählen')} /></th><th>{t('Sortierfeld')}</th><th class="c-deck">{t('Stapel')}</th><th class="opt">{t('Notiztyp')}</th><th class="opt">{t('Tags')}</th><th class="r c-ivl">{t('Intervall')}</th><th class="r c-reps opt">{t('Wdh.')}</th></tr>
+          <tr><th class="cb"><input type="checkbox" checked={allSelected} indeterminate={selected.size > 0 && !allSelected} onclick={toggleAll} aria-label={t('Alle auswählen')} /></th>{@render head('sort', t('Sortierfeld'))}{@render head('deck', t('Stapel'), 'c-deck')}{@render head('notetype', t('Notiztyp'), 'opt')}{@render head('tags', t('Tags'), 'opt')}{@render head('ivl', t('Intervall'), 'r c-ivl')}{@render head('reps', t('Wdh.'), 'r c-reps opt')}</tr>
         </thead>
         <tbody>
-          {#each rows as r (r.card_id)}
+          {#each shown as r (r.card_id)}
             <tr class:sel={selected.has(r.card_id)} class:susp={r.suspended} onclick={(e) => pick(r, e)}>
               <td class="cb"><input type="checkbox" checked={selected.has(r.card_id)} onclick={(e) => { e.stopPropagation(); toggle(r) }} aria-label={t('Auswählen')} /></td>
               <td class="sort">
@@ -242,6 +267,9 @@
   .hint { font-size: 13px; }
   .table-wrap { flex: 1; overflow: auto; margin-top: 8px; }
   .table-wrap.loading { opacity: 0.6; }
+  .th-sort { font: inherit; color: inherit; padding: 0; height: auto; min-height: 0; gap: 2px; width: 100%; justify-content: flex-start; overflow: hidden; }
+  .th-sort:hover { background: transparent; }
+  th.r .th-sort { justify-content: flex-end; }
   thead th { position: sticky; top: 0; background: var(--paper); z-index: 1; }
   th, td { text-align: left; }
   th.r, td.r { text-align: right; }

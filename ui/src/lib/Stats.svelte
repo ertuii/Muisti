@@ -19,7 +19,7 @@
     if (starting) return
     starting = w
     try {
-      await onPractice(w.kind, w.name, days)
+      await onPractice(w.kind, w.name, days, deckId || null)
     } finally {
       starting = null
     }
@@ -68,7 +68,9 @@
     load()
   })
   $effect(() => {
-    if (weak) api.weak_spots(days).then((w) => (spots = w))
+    if (!weak) return
+    const [d, n] = [deckId, days]
+    api.weak_spots(n, d || null).then((w) => d === deckId && n === days && (spots = w)) // drop a stale answer
   })
 
   const DAY = 86400000

@@ -22,7 +22,7 @@
   {#each overview.exams as e (e.deck_id)}
       <div class="exam">
         <span class="ename">
-          <span class="chip" style:background={hueFor(flat.find((d) => d.id === e.deck_id)?.top ?? e.deck_id)}></span>
+          <span class="chip" style:background={flat.find((d) => d.id === e.deck_id)?.hue ?? hueFor(e.deck_id)}></span>
           <b>{e.name}</b>
           <span class="muted">{examDate(e.date)}, {until(e.days)}</span>
         </span>
