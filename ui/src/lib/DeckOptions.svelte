@@ -14,6 +14,8 @@
   let toSubdecks = $state(false)
   let confirmOverwrite = $state(false)
   let loaded = $state('') // the form as it came from the preset or deck, to see whether anything differs
+  let paceWas = $state(0) // the new-cards limit as loaded: changing it by hand ends the automatic exam pace
+  const endsAuto = $derived(o?.exam_auto && o.new_per_day !== paceWas)
 
   // Anki stores steps in minutes; show them as "1m 10m 1d".
   const fmtSteps = (xs) => xs.map((m) => (m >= 1440 && m % 1440 === 0 ? `${m / 1440}d` : m >= 60 && m % 60 === 0 ? `${m / 60}h` : `${m}m`)).join(' ')
@@ -106,7 +108,7 @@
 
   // what is not a preset's value: facts about the deck, today's limits, and the options Anki only has for all decks
   const NOT_PRESET = new Set(['deck_name', 'preset_id', 'individual', 'base_preset_name', 'others', 'presets', 'fsrs', 'fsrs_optimized', 'days_since_optimize',
-    'limits', 'subdecks', 'new_cards_ignore_review_limit', 'apply_all_parent_limits', 'learn_steps', 'relearn_steps'])
+    'limits', 'subdecks', 'exam_auto', 'new_cards_ignore_review_limit', 'apply_all_parent_limits', 'learn_steps', 'relearn_steps'])
   const formState = () => JSON.stringify([Object.entries(o).filter(([k]) => !NOT_PRESET.has(k)), steps])
   const changed = $derived(o && formState() !== loaded)
   const own = $derived(o && (o.individual || changed)) // the deck has (or will have) its own values
@@ -116,6 +118,7 @@
     steps = { learn_steps: fmtSteps(o.learn_steps), relearn_steps: fmtSteps(o.relearn_steps) }
     for (const kind in LIMITS) scope[kind] = o.limits[LIMITS[kind][1]] != null ? 1 : 0
     loaded = formState()
+    if (presetId == null) paceWas = o.new_per_day
     confirmOverwrite = false
   }
 
@@ -126,7 +129,8 @@
     try {
       // nothing differs from the chosen preset: the deck simply uses it
       await api.save_deck_options(deckId, { ...formData(), limits_to_subdecks: toSubdecks, ...(own ? {} : { use_preset: o.preset_id }) })
-      notify(toSubdecks ? t('Optionen gespeichert, auch für die Unterstapel') : t('Optionen gespeichert'))
+      if (endsAuto) await api.set_exam_auto(deckId, false)
+      notify(endsAuto ? t('Optionen gespeichert, das automatische Prüfungstempo ist aus') : toSubdecks ? t('Optionen gespeichert, auch für die Unterstapel') : t('Optionen gespeichert'))
       toSubdecks = false
       await load()
     } catch (e) {
@@ -252,6 +256,12 @@
         {@render limit('new', 'Neue Karten pro Tag')}
         {@render limit('review', 'Wiederholungen pro Tag')}
       </div>
+      {#if o.exam_auto}
+        <p class="auto" class:ends={endsAuto} role="status">
+          {endsAuto ? t('Mit dem Speichern wird das automatische Tempo bis zur Prüfung ausgeschaltet: das Limit für neue Karten bleibt dann bei deinem Wert. Auf der Seite „Prüfungen“ schaltest du es wieder ein.')
+            : t('Die neuen Karten pro Tag folgen automatisch dem Prüfungsplan dieses Stapels. Änderst du den Wert hier, wird das automatische Tempo bis zur Prüfung ausgeschaltet.')}
+        </p>
+      {/if}
       <p class="muted">{t('„Normal“ ist der Wert für jeden Tag, „Nur heute“ gilt bis morgen.')}</p>
       <div class="checks">
         <label class="check"><input type="checkbox" bind:checked={o.new_cards_ignore_review_limit} />{t('Neue Karten ignorieren das Wiederholungslimit')} <span class="muted">{t('(alle Stapel)')}</span></label>
@@ -338,6 +348,8 @@
   .lbl { font-size: 13px; }
   small { font-size: 12px; color: var(--ink-3); }
   .checks { display: flex; flex-direction: column; gap: 8px; }
+  section > .auto { font-size: 14px; padding: 10px 14px; border-radius: var(--radius); background: var(--paper-2); }
+  section > .auto.ends { background: var(--warn-bg); color: var(--warn-ink); }
   label.check { flex-direction: row; align-items: center; gap: 10px; font-size: 14px; color: var(--ink); }
   .range { display: flex; align-items: center; gap: 12px; }
   .range input { flex: 1; accent-color: var(--ink); height: auto; border: 0; padding: 0; }

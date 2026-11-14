@@ -13,6 +13,7 @@
   import ImportDialog from './lib/ImportDialog.svelte'
   import Inbox from './lib/Inbox.svelte'
   import Exams from './lib/Exams.svelte'
+  import Onboarding from './lib/Onboarding.svelte'
 
   const mac = new URLSearchParams(location.search).has('mac') // title bar hidden, see app.py
   let view = $state(/** @type {any} */ ({ name: 'today' }))
@@ -43,8 +44,11 @@
   let syncing = $state(false)
   let openDecks = $state(new Set()) // top-level decks unfolded in the rail
 
+  let onboarding = $state(null) // 'choose': first start, features then tour; 'tour': the tour again, from the settings
+
   async function refresh() {
     ;[decks, overview] = await Promise.all([api.decks(), api.overview()])
+    if (overview.first_run && view.name === 'today') onboarding ??= 'choose'
     if (!web) api.cloud_account().then((a) => (linked = !!a), () => {})
   }
 
@@ -157,11 +161,11 @@
     </div>
     <nav>
       <button class="nav" class:on={view.name === 'today'} onclick={() => go('today')}><CalendarDays size={17} />{t('Heute')}</button>
-      <button class="nav" class:on={view.name === 'add'} onclick={() => go('add')}><Plus size={17} />{t('Hinzufügen')}</button>
-      <button class="nav" class:on={view.name === 'browse'} onclick={() => go('browse')}><Search size={17} />{t('Browser')}</button>
-      <button class="nav" class:on={view.name === 'stats'} onclick={() => go('stats')}><ChartColumn size={17} />{t('Statistik')}</button>
+      <button class="nav" class:on={view.name === 'add'} data-tour="add" onclick={() => go('add')}><Plus size={17} />{t('Hinzufügen')}</button>
+      <button class="nav" class:on={view.name === 'browse'} data-tour="browse" onclick={() => go('browse')}><Search size={17} />{t('Browser')}</button>
+      <button class="nav" class:on={view.name === 'stats'} data-tour="stats" onclick={() => go('stats')}><ChartColumn size={17} />{t('Statistik')}</button>
       {#if overview?.features.exams}
-        <button class="nav extra" class:on={view.name === 'exams'} onclick={() => go('exams')}><GraduationCap size={17} />{t('Prüfungen')}</button>
+        <button class="nav extra" data-tour="exams" class:on={view.name === 'exams'} onclick={() => go('exams')}><GraduationCap size={17} />{t('Prüfungen')}</button>
       {/if}
       {#if overview?.inbox || view.name === 'inbox'}
         <button class="nav extra" class:on={view.name === 'inbox'} onclick={() => go('inbox')}>
@@ -171,7 +175,7 @@
     </nav>
     <div class="label">{t('Stapel')}</div>
     <nav class="decks">
-      {#each flat.filter((d) => d.depth === 0 || openDecks.has(d.top)) as d (d.id)}
+      {#each flat.filter((d) => !d.archived && (d.depth === 0 || openDecks.has(d.top))) as d (d.id)}
         <div class="deckrow" style:padding-left="{Math.max(0, d.depth - 1) * 14}px">
           {#if d.depth === 0 && d.children.length}
             <button class="plain fold" aria-expanded={openDecks.has(d.id)} aria-label={openDecks.has(d.id) ? t('Zuklappen') : t('Aufklappen')} title={openDecks.has(d.id) ? t('Zuklappen') : t('Aufklappen')} onclick={() => toggleDeck(d.id)}>
@@ -193,10 +197,10 @@
       </div>
     {/if}
     <button class="nav foot" class:on={view.name === 'notetypes'} onclick={() => go('notetypes')}><Shapes size={17} />{t('Notiztypen')}</button>
-    <button class="nav foot" class:on={view.name === 'settings'} onclick={() => go('settings')}><Gear size={17} />{t('Einstellungen')}</button>
+    <button class="nav foot" data-tour="settings" class:on={view.name === 'settings'} onclick={() => go('settings')}><Gear size={17} />{t('Einstellungen')}</button>
     <button class="nav foot" onclick={importFile}><Download size={17} />{t('Importieren')}</button>
     <!-- phones: the tab bar holds five; the rest sits behind "Mehr" -->
-    <button class="nav more" popovertarget="more" class:on={['exams', 'inbox', 'notetypes', 'settings'].includes(view.name)}>
+    <button class="nav more" data-tour="more" popovertarget="more" class:on={['exams', 'inbox', 'notetypes', 'settings'].includes(view.name)}>
       <Ellipsis size={17} />{t('Mehr')}{#if overview?.inbox}<span class="count num badge">{overview.inbox}</span>{/if}
     </button>
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
@@ -222,7 +226,7 @@
     {:else if view.name === 'notetypes'}
       <NoteTypes {notify} />
     {:else if view.name === 'settings'}
-      <Settings {notify} {refresh} {checkUpdate} />
+      <Settings {notify} {refresh} {checkUpdate} onTour={() => { go('today'); onboarding = 'tour' }} />
     {:else if view.name === 'exams' && overview}
       <Exams {flat} {overview} {run} {notify} />
     {:else if view.name === 'inbox'}
@@ -234,6 +238,10 @@
     {/if}
   </main>
 </div>
+
+{#if onboarding && overview && view.name === 'today'}
+  <Onboarding features={overview.features} choose={onboarding === 'choose'} {refresh} {notify} onDone={() => (onboarding = null)} />
+{/if}
 
 {#if importing}
   <ImportDialog path={importing} {flat} {notify} onDone={() => { importing = null; refresh() }} onClose={() => (importing = null)} />

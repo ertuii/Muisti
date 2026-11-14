@@ -11,6 +11,9 @@ import { lang, t as tr } from '../lib/i18n.js'
 const INBOX_TAG = 'Claude-Eingang'
 const FEATURES = { exams: false, plan: false, weak: false, inbox: true, hard_wrong: false }
 const EXAMS = 'betteranki.exams' // {deck_id: "YYYY-MM-DD"}, same key as the desktop
+const EXAM_AUTO = 'muisti.examAuto' // ids of decks whose new-cards limit follows the pace of their exam
+const ORDER = 'muisti.deckOrder' // every deck id in the order shown on "Heute"
+const ARCHIVED = 'muisti.archived' // ids of top-level decks in the archive
 const now = () => Math.floor(Date.now() / 1000)
 const cfg = (key, dflt) => (S.config.has(key) ? S.config.get(key).val : dflt)
 const setCfg = (key, val) => write('config', [{ key, val, mod: now() }])
@@ -80,17 +83,43 @@ export function decks() {
   const tm = t()
   const all = [...S.decks.values()].map((r) => r.data).sort((a, b) => a.name.localeCompare(b.name, 'de'))
   const colors = cfg('betteranki.colors', {})
+  const archived = cfg(ARCHIVED, [])
+  const order = new Map(cfg(ORDER, []).map((id, i) => [id, i]))
+  const byOrder = (a, b) => (order.get(a.id) ?? order.size) - (order.get(b.id) ?? order.size) // unknown decks follow, by name
   const byName = new Map()
   const roots = []
   for (const d of all) {
     if (d.id === 1 && all.length > 1 && !cardsIn(new Set([1])).length) continue // Anki hides an empty Default
     const c = countsFor(d.id, tm)
-    const node = { id: d.id, name: d.name, short: d.name.split('::').pop(), ...c, collapsed: !!d.collapsed, filtered: !!d.dyn, color: colors[d.id] ?? null, children: [] }
+    const node = { id: d.id, name: d.name, short: d.name.split('::').pop(), ...c, collapsed: !!d.collapsed, filtered: !!d.dyn, color: colors[d.id] ?? null, archived: !d.name.includes('::') && archived.includes(d.id), children: [] }
     byName.set(d.name, node)
     const parent = byName.get(d.name.split('::').slice(0, -1).join('::'))
     ;(parent ? parent.children : roots).push(node)
   }
-  return roots
+  for (const n of byName.values()) n.children.sort(byOrder)
+  return roots.sort(byOrder)
+}
+
+const dueToday = () => decks().reduce((s, d) => s + (d.archived ? 0 : d.new + d.learn + d.review), 0)
+
+/** Drag & drop on "Heute": the deck's parent (null = top level) and the order of all decks as shown. */
+export function move_deck(deck_id, parent_id, order) {
+  const d = deckOf(deck_id)
+  const name = (parent_id ? deckOf(parent_id).name + '::' : '') + d.name.split('::').pop()
+  if (name !== d.name) {
+    if ([...S.decks.values()].some((r) => r.data.name === name)) throw new Error('Dort gibt es schon einen Stapel mit diesem Namen.')
+    rename_deck(deck_id, name)
+    if (parent_id) setCfg(ARCHIVED, cfg(ARCHIVED, []).filter((i) => i !== d.id))
+  }
+  setCfg(ORDER, order)
+}
+
+/** Archived decks leave "Heute", the rail and the due counts. The archive holds top-level decks: a subdeck becomes one. */
+export function set_archived(deck_id, archived) {
+  const d = deckOf(deck_id)
+  if (archived && d.name.includes('::')) move_deck(deck_id, null, cfg(ORDER, []))
+  const ids = cfg(ARCHIVED, []).filter((i) => i !== d.id)
+  setCfg(ARCHIVED, archived ? [...ids, d.id] : ids)
 }
 
 export function create_deck(name) {
@@ -492,7 +521,7 @@ export function stats() {
   return {
     cards: S.cards.size, notes: S.notes.size,
     studied_today: todays.length ? tr('Heute {n} Karten in {m} Minuten gelernt', { n: todays.length, m: (Math.round(mins * 10) / 10).toLocaleString(lang) }) : tr('Heute noch keine Karten gelernt'),
-    due_today: decks().reduce((s, d) => s + d.new + d.learn + d.review, 0),
+    due_today: dueToday(),
   }
 }
 
@@ -520,12 +549,15 @@ export function overview(past_days = 126, future_days = 28) {
   let streak = 0
   const back = (i) => past[past_days - 1 - i]
   while (streak < past_days && back(streak + (back(0) ? 0 : 1))) streak++
-  const due = decks().reduce((s, d) => s + d.new + d.learn + d.review, 0)
   const features_ = features()
+  if (features_.exams) followExams() // before counting: the limit decides how many new cards are due
+  const due = dueToday()
   return {
     due, minutes: Math.round((due * (timeN ? timeSum / timeN / 1000 : 10)) / 60), streak,
     retention: total ? Math.round((100 * passed) / total) : null, past, future, overdue: overdue(tm),
     features: features_, exams: features_.exams ? exam_plan() : [], inbox: inbox_count(),
+    // nothing chosen and nothing learned yet: the UI asks for the extras and offers the tour
+    first_run: !S.config.has('betteranki.features') && !S.cards.size,
   }
 }
 
@@ -608,11 +640,25 @@ export function set_exam(deck_id, date) {
   if (date) exams[String(deck_id)] = date
   else delete exams[String(deck_id)]
   setCfg(EXAMS, exams)
+  if (!date) set_exam_auto(deck_id, false)
+}
+
+export function set_exam_auto(deck_id, auto) {
+  const ids = cfg(EXAM_AUTO, []).filter((i) => i !== Number(deck_id))
+  setCfg(EXAM_AUTO, auto ? [...ids, Number(deck_id)] : ids)
+  followExams()
+}
+
+/** Decks on automatic pace: the limit moves with the plan (cards added or suspended, days gone by). */
+function followExams() {
+  // the deck's own limit, which the desktop reads as an individual value (core.py deck_options)
+  for (const p of exam_plan()) if (p.auto && p.per_day && p.current !== p.per_day) saveDeck({ ...deckOf(p.deck_id), newLimit: p.per_day })
 }
 
 export function exam_plan() {
   const midnight = (d) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
   const today = midnight(new Date())
+  const auto = cfg(EXAM_AUTO, [])
   return Object.entries(cfg(EXAMS, {})).sort((a, b) => a[1].localeCompare(b[1])).flatMap(([did, date]) => {
     const d = deckOf(did)
     if (!d) return [] // deck was deleted
@@ -621,7 +667,7 @@ export function exam_plan() {
     const newLeft = cardsIn(subtree(d.id)).filter((c) => c.queue === 0).length
     const buffer = Math.min(7, Math.max(1, Math.floor(days / 5))) // the last fifth (1–7 days) is for reviewing
     const perDay = newLeft && days > 0 ? Math.ceil(newLeft / Math.max(1, days - buffer)) : 0
-    return [{ deck_id: d.id, name: d.name, date, days, new_left: newLeft, per_day: perDay, current: d.newLimit ?? confOf(d).new.perDay, buffer }]
+    return [{ deck_id: d.id, name: d.name, date, days, new_left: newLeft, per_day: perDay, current: d.newLimit ?? confOf(d).new.perDay, buffer, auto: auto.includes(d.id) }]
   })
 }
 
@@ -629,7 +675,7 @@ export function exam_plan() {
 export async function plan_next() {
   const exams = features().exams ? cfg(EXAMS, {}) : {}
   const first = (d) => [...subtree(d.id)].map((i) => exams[String(i)]).filter(Boolean).sort()[0] ?? '9999'
-  const tops = decks().filter((d) => !d.filtered).sort((a, b) => first(a).localeCompare(first(b)))
+  const tops = decks().filter((d) => !d.filtered && !d.archived).sort((a, b) => first(a).localeCompare(first(b)))
   for (const d of tops) {
     const card = d.new + d.learn + d.review ? await next_card(d.id) : null
     if (card) return { ...card, deck: d.name }

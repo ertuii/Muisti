@@ -28,6 +28,14 @@ export const hueFor = (topId) => `var(--m-${HUES[Number(BigInt(topId) % 7n)]})`
 // what a top-level deck's chip can be changed to on "Heute" (core.set_deck_color)
 export const PASTELS = ['#f4a7a1', '#f7c59f', '#f3e09b', '#b5dfa6', '#9fd8cf', '#a8c8f0', '#c6b4ee', '#f2b5d4']
 
+// the optional features, as shown in the settings and on the first start; texts go through t()
+export const EXTRAS = [
+  { key: 'exams', name: 'Prüfungstermine', hint: 'Eigene Seite „Prüfungen“: Klausurdatum pro Stapel eintragen. Die App rechnet aus, wie viele neue Karten pro Tag nötig sind, und markiert die Prüfung im Zeitstrahl.' },
+  { key: 'plan', name: 'Lernplan', hint: 'Auf der Heute-Seite eine Dauer wählen und über alle Stapel lernen, Stapel mit naher Prüfung zuerst.' },
+  { key: 'weak', name: 'Schwachstellen', hint: 'In der Statistik sehen, bei welchen Themen und Stapeln du am meisten vergisst, und gezielt üben.' },
+  { key: 'inbox', name: 'Karten von Claude erst prüfen', hint: 'Neue Karten von Claude warten im Eingang, bis du sie übernimmst. Ausgeschaltet werden sie sofort gelernt.' },
+]
+
 // Anki's card flags (0 = none); labels go through t()
 export const FLAG_COLORS = [
   { n: 0, label: 'Keine Markierung', color: 'var(--ink-3)' },
@@ -41,11 +49,11 @@ export const FLAG_COLORS = [
 ]
 
 // Deck tree -> flat rows with depth, the top-level id and its hue (the chosen color, else the fixed one).
-export function flatten(decks, depth = 0, top = null, out = []) {
+export function flatten(decks, depth = 0, top = null, out = [], parent = null) {
   for (const d of decks) {
     const t = top ?? d
-    out.push({ ...d, depth, top: t.id, hue: t.color || hueFor(t.id) })
-    flatten(d.children, depth + 1, t, out)
+    out.push({ ...d, depth, top: t.id, parent: depth ? parent.id : null, archived: t.archived, hue: t.color || hueFor(t.id) })
+    flatten(d.children, depth + 1, t, out, d)
   }
   return out
 }

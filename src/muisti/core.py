@@ -117,6 +117,11 @@ class Core:
     @_locked
     def decks(self) -> list[dict]:
         colors = self._col.get_config(self._COLORS, {})
+        order = {d: i for i, d in enumerate(self._col.get_config(self._ORDER, []))}
+        archived = set(self._col.get_config(self._ARCHIVED, []))
+
+        def ordered(nodes, prefix=""):  # decks the order doesn't know follow, by name as Anki sorts them
+            return sorted((walk(c, prefix) for c in nodes), key=lambda d: order.get(d["id"], len(order)))
 
         def walk(node, prefix=""):
             name = f"{prefix}::{node.name}" if prefix else node.name
@@ -130,13 +135,43 @@ class Core:
                 "collapsed": node.collapsed,
                 "filtered": node.filtered,
                 "color": colors.get(str(node.deck_id)),
-                "children": [walk(c, name) for c in node.children],
+                "archived": not prefix and node.deck_id in archived,
+                "children": ordered(node.children, name),
             }
 
-        root = self._col.sched.deck_due_tree()
-        return [walk(c) for c in root.children]
+        return ordered(self._col.sched.deck_due_tree().children)
 
     _COLORS = "betteranki.colors"  # {deck_id: "#rrggbb"}, synced like any config key
+    _ORDER = "muisti.deckOrder"  # every deck id in the order shown on "Heute"
+    _ARCHIVED = "muisti.archived"  # ids of top-level decks in the archive
+
+    def _due_today(self) -> int:
+        return sum(d["new"] + d["learn"] + d["review"] for d in self.decks() if not d["archived"])
+
+    def _unarchive(self, deck_id: int) -> list[int]:
+        ids = [i for i in self._col.get_config(self._ARCHIVED, []) if i != deck_id]
+        self._col.set_config(self._ARCHIVED, ids)
+        return ids
+
+    @_locked
+    def move_deck(self, deck_id: int, parent_id: int | None, order: list[int]) -> None:
+        """Drag & drop on "Heute": the deck's parent (None = top level) and the order of all decks as shown."""
+        parent = self._col.decks.name(parent_id) if parent_id else ""
+        if self._col.decks.name(deck_id).rpartition("::")[0] != parent:
+            self._col.decks.reparent([deck_id], parent_id or 0)
+            if parent_id:
+                self._unarchive(deck_id)
+        self._col.set_config(self._ORDER, [int(i) for i in order])
+
+    @_locked
+    def set_archived(self, deck_id: int, archived: bool) -> None:
+        """Archived decks leave "Heute", the rail and the due counts; their cards stay as they are.
+        The archive holds top-level decks: a subdeck becomes one on the way in."""
+        if archived and "::" in self._col.decks.name(deck_id):
+            self._col.decks.reparent([deck_id], 0)
+        ids = self._unarchive(deck_id)
+        if archived:
+            self._col.set_config(self._ARCHIVED, [*ids, deck_id])
 
     @_locked
     def set_deck_color(self, deck_id: int, color: str | None) -> None:
@@ -229,6 +264,7 @@ class Core:
             "fsrs_optimized": len(c.fsrs_params_6) > 0,
             "days_since_optimize": info.days_since_last_fsrs_optimize,
             "limits": {k: (getattr(lim, k) if lim.HasField(k) else None) for k in ("new_today", "review_today")},
+            "exam_auto": deck_id in self._col.get_config(self._EXAM_AUTO, []) and str(deck_id) in self._exams(),
             "subdecks": len(self._col.decks.deck_and_child_ids(deck_id)) - 1,
             "new_cards_ignore_review_limit": info.new_cards_ignore_review_limit,
             "apply_all_parent_limits": info.apply_all_parent_limits,
@@ -881,7 +917,22 @@ class Core:
             exams[str(deck_id)] = date
         else:
             exams.pop(str(deck_id), None)
+            self.set_exam_auto(deck_id, False)
         self._col.set_config("betteranki.exams", exams)
+
+    _EXAM_AUTO = "muisti.examAuto"  # ids of decks whose new-cards limit follows the pace of their exam
+
+    @_locked
+    def set_exam_auto(self, deck_id: int, auto: bool) -> None:
+        ids = [i for i in self._col.get_config(self._EXAM_AUTO, []) if i != deck_id]
+        self._col.set_config(self._EXAM_AUTO, [*ids, deck_id] if auto else ids)
+        self._follow_exams()
+
+    def _follow_exams(self) -> None:
+        """Decks on automatic pace: the limit moves with the plan (cards added or suspended, days gone by)."""
+        for p in self.exam_plan():
+            if p["auto"] and p["per_day"] and p["current"] != p["per_day"]:
+                self.apply_exam_pace(p["deck_id"])
 
     @_locked
     def exam_plan(self) -> list[dict]:
@@ -890,6 +941,7 @@ class Core:
         import math
 
         today = datetime.date.today()
+        auto = self._col.get_config(self._EXAM_AUTO, [])
         out = []
         for did, date in sorted(self._exams().items(), key=lambda kv: kv[1]):
             if not self._col.decks.get(int(did), default=False):
@@ -904,7 +956,7 @@ class Core:
             lim = info.current_deck.limits
             current = lim.new if lim.HasField("new") else self._col.decks.config_dict_for_deck_id(int(did))["new"]["perDay"]
             out.append({"deck_id": int(did), "name": self._col.decks.name(int(did)), "date": date, "days": days,
-                        "new_left": new_left, "per_day": per_day, "current": current, "buffer": buffer})
+                        "new_left": new_left, "per_day": per_day, "current": current, "buffer": buffer, "auto": int(did) in auto})
         return out
 
     @_locked
@@ -920,7 +972,7 @@ class Core:
     def plan_next(self) -> dict | None:
         """Next card of a session across all decks: decks with the nearest exam first, then the rest in order."""
         exams = self._exams() if self.features()["exams"] else {}
-        tops = [d for d in self.decks() if not d["filtered"]]
+        tops = [d for d in self.decks() if not d["filtered"] and not d["archived"]]
         tops.sort(key=lambda d: min((exams[str(i)] for i in self._col.decks.deck_and_child_ids(d["id"]) if str(i) in exams), default="9999"))
         for d in tops:
             if d["new"] + d["learn"] + d["review"] and (card := self.next_card(d["id"])):
@@ -1235,7 +1287,7 @@ class Core:
             "cards": self._col.card_count(),
             "notes": self._col.note_count(),
             "studied_today": _strip(self._col.studied_today()),
-            "due_today": sum(d["new"] + d["learn"] + d["review"] for d in self.decks()),
+            "due_today": self._due_today(),
         }
 
     @_locked
@@ -1260,7 +1312,10 @@ class Core:
             "select sum(ease > ?), count(), sum(time) / 1000.0 from revlog where id > ? and type = 1", self._fail_ease(), month_ago
         ) or (0, 0, 0)
         avg_secs = (db.scalar("select avg(time) / 1000.0 from revlog where id > ?", month_ago) or 10)
-        due = sum(d["new"] + d["learn"] + d["review"] for d in self.decks())
+        features = self.features()
+        if features["exams"]:
+            self._follow_exams()  # before counting: the limit decides how many new cards are due
+        due = self._due_today()
         return {
             "due": due,
             "minutes": round(due * avg_secs / 60),
@@ -1269,7 +1324,9 @@ class Core:
             "past": [past.get(i, 0) for i in range(past_days - 1, -1, -1)],  # oldest first, last = today
             "future": [future.get(i, 0) for i in range(1, future_days + 1)],
             "overdue": {d["id"]: n for d in self._flat_decks() if (n := self._overdue(d["id"]))},
-            "features": (features := self.features()),
+            "features": features,
+            # nothing chosen and nothing learned yet: the UI asks for the extras and offers the tour
+            "first_run": self._col.get_config("betteranki.features", None) is None and not self._col.card_count(),
             "exams": self.exam_plan() if features["exams"] else [],
             "inbox": self.inbox_count(),
         }

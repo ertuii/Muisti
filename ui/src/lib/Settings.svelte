@@ -1,11 +1,11 @@
 <script>
   import { Copy, Keyboard } from '@lucide/svelte'
-  import { api, web } from './api.js'
+  import { api, web, EXTRAS as ALL_EXTRAS } from './api.js'
   import AnkiMigration from './AnkiMigration.svelte'
   import { applyTheme } from './theme.js'
   import { LANGUAGES, lang, t } from './i18n.js'
 
-  let { notify, refresh, checkUpdate } = $props()
+  let { notify, refresh, checkUpdate, onTour } = $props()
 
   let cloud = $state(null) // e-mail of the Muisti account
   let cEmail = $state('')
@@ -343,11 +343,7 @@
   api.app_version().then((v) => (version = v))
   api.features().then((f) => (features = f))
 
-  const EXTRAS = [
-    { key: 'exams', name: 'Prüfungstermine', hint: 'Eigene Seite „Prüfungen“: Klausurdatum pro Stapel eintragen. Die App rechnet aus, wie viele neue Karten pro Tag nötig sind, und markiert die Prüfung im Zeitstrahl.' },
-    { key: 'plan', name: 'Lernplan', hint: 'Auf der Heute-Seite eine Dauer wählen und über alle Stapel lernen, Stapel mit naher Prüfung zuerst.' },
-    { key: 'weak', name: 'Schwachstellen', hint: 'In der Statistik sehen, bei welchen Themen und Stapeln du am meisten vergisst, und gezielt üben.' },
-  ].map((x) => ({ ...x, name: t(x.name), hint: t(x.hint) }))
+  const EXTRAS = ALL_EXTRAS.map((x) => ({ ...x, name: t(x.name), hint: t(x.hint) }))
 </script>
 
 <div class="settings">
@@ -391,16 +387,13 @@
   {#if features}
     <section>
       <h2>{t('Zusatzfunktionen')}</h2>
-      <p class="muted">{t('Funktionen, die es in Anki nicht gibt. Schalte nur ein, was du brauchst.')}</p>
+      <p class="muted">{t('Funktionen, die es in Anki nicht gibt. Schalte nur ein, was du brauchst.')} <button class="plain sm tour" onclick={onTour}>{t('Einführung ansehen')}</button></p>
       <div class="extras">
         {#each EXTRAS as x}
           <label class="extra"><input type="checkbox" bind:checked={features[x.key]} onchange={saveFeatures} />
             <span><b>{x.name}</b><small class="muted">{x.hint}</small></span>
           </label>
         {/each}
-        <label class="extra"><input type="checkbox" bind:checked={features.inbox} onchange={saveFeatures} />
-          <span><b>{t('Karten von Claude erst prüfen')}</b><small class="muted">{t('Neue Karten von Claude warten im Eingang, bis du sie übernimmst. Ausgeschaltet werden sie sofort gelernt.')}</small></span>
-        </label>
       </div>
     </section>
   {/if}
@@ -694,6 +687,7 @@
   section > p { font-size: 14px; max-width: 65ch; }
   .small { font-size: 13px !important; }
   .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .tour { text-decoration: underline; padding: 0 4px; }
   .extras { display: flex; flex-direction: column; gap: 14px; }
   .seg { display: inline-flex; align-self: flex-start; border: 1px solid var(--rule-2); border-radius: var(--radius); padding: 2px; }
   .seg button { background: transparent; color: var(--ink-2); border: 0; height: 30px; padding: 0 12px; font-weight: 500; }

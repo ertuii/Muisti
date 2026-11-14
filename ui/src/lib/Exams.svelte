@@ -1,6 +1,7 @@
 <script>
   import { api, hueFor } from './api.js'
   import { lang, t } from './i18n.js'
+  import DatePicker from './DatePicker.svelte'
 
   // Exam dates per deck and the new-cards pace each one needs.
   let { flat, overview, run, notify } = $props()
@@ -33,12 +34,17 @@
             <span class="muted">{t('Alle Karten gelernt, jetzt nur noch wiederholen')}</span>
           {:else}
             <span class="num">{t(e.new_left === 1 ? '{n} neue Karte übrig' : '{n} neue Karten übrig', { n: e.new_left })} · <b>{t('{n} pro Tag', { n: e.per_day })}</b> {t('nötig')}</span>
-            {#if e.current !== e.per_day}
+            {#if e.auto || e.current === e.per_day}
+              <span class="muted">{t('eingestellt')}</span>
+            {:else}
               <button class="ghost sm" title={t('Setzt das Limit für neue Karten nur dieses Stapels (aktuell {n})', { n: e.current })}
                 onclick={() => run(() => api.apply_exam_pace(e.deck_id), (n) => t('{name}: ab jetzt {n} neue Karten pro Tag', { name: e.name, n }))}>{t('Tempo übernehmen')}</button>
-            {:else}
-              <span class="muted">{t('eingestellt')}</span>
             {/if}
+          {/if}
+          {#if e.days > 0}
+            <label class="auto" title={t('Passt das Limit für neue Karten dieses Stapels laufend an, auch wenn Karten dazukommen oder ausgesetzt werden.')}>
+              <input type="checkbox" checked={e.auto} onchange={(ev) => run(() => api.set_exam_auto(e.deck_id, ev.currentTarget.checked), ev.currentTarget.checked ? t('{name}: Tempo passt sich jetzt automatisch an', { name: e.name }) : null)} />{t('Automatisch')}
+            </label>
           {/if}
           <button class="plain sm" aria-label={t('Prüfung entfernen')} onclick={() => run(() => api.set_exam(e.deck_id, null))}>{t('Entfernen')}</button>
         </span>
@@ -50,7 +56,7 @@
           <option value={null}>{t('Stapel wählen …')}</option>
           {#each flat.filter((d) => !d.filtered) as d}<option value={d.id}>{d.name}</option>{/each}
         </select>
-        <input type="date" bind:value={examForm.date} aria-label={t('Datum')} min={new Date().toISOString().slice(0, 10)} />
+        <DatePicker bind:value={examForm.date} label={t('Datum')} min={new Date().toLocaleDateString('sv')} />
         <button type="submit" class="sm">{t('Eintragen')}</button>
         <button type="button" class="ghost sm" onclick={() => (examForm = null)}>{t('Abbrechen')}</button>
       </form>
@@ -58,7 +64,7 @@
       <div><button class="ghost sm" onclick={() => (examForm = { deckId: null, date: '' })}>{t('Prüfung eintragen')}</button></div>
     {/if}
     {#if overview.exams.length}
-      <p class="muted small">{t('Das Tempo verteilt die neuen Karten so, dass die letzten Tage vor der Prüfung nur noch zum Wiederholen bleiben.')}</p>
+      <p class="muted small">{t('Das Tempo verteilt die neuen Karten so, dass die letzten Tage vor der Prüfung nur noch zum Wiederholen bleiben.')} {t('Mit „Automatisch“ passt sich das Limit von selbst an, wenn Karten dazukommen oder ausgesetzt werden.')}</p>
     {/if}
 </div>
 
@@ -67,12 +73,13 @@
   h1 { font-size: 26px; font-weight: 750; letter-spacing: -0.02em; }
   .intro { font-size: 14px; max-width: 65ch; margin: 6px 0 18px; }
   .exam { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid var(--rule); }
-  .ename, .pace { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+  .ename, .pace { display: flex; align-items: center; gap: 10px; font-size: 14px; flex-wrap: wrap; }
+  .auto { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
   .exam-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding-top: 10px; }
-  .exam-form select, .exam-form input { width: auto; }
+  .exam-form select { width: auto; }
   .small { font-size: 13px; margin-top: 6px; }
   @media (max-width: 860px) {
     .exams { padding: 20px 16px 40px; }
-    .exam-form select, .exam-form input { flex: 1 1 100%; }
+    .exam-form select, .exam-form :global(.dp) { flex: 1 1 100%; }
   }
 </style>

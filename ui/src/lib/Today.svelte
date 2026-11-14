@@ -1,5 +1,5 @@
 <script>
-  import { ChevronRight, Ellipsis } from '@lucide/svelte'
+  import { Archive, ChevronRight, Ellipsis, GripVertical } from '@lucide/svelte'
   import { api, PASTELS, total, web } from './api.js'
   import Strip from './Strip.svelte'
   import AnkiMigration from './AnkiMigration.svelte'
@@ -34,19 +34,65 @@
 
   const dateLabel = new Date().toLocaleDateString(lang, { weekday: 'long', day: 'numeric', month: 'long' })
 
-  // Hide children of collapsed decks.
+  // Hide children of collapsed decks; archived decks sit in the archive below the table.
   const rows = $derived.by(() => {
     const out = []
     let hideBelow = Infinity
     for (const d of flat) {
-      if (d.depth > hideBelow) continue
+      if (d.depth > hideBelow || d.archived) continue
       hideBelow = d.collapsed ? d.depth : Infinity
       out.push(d)
     }
     return out
   })
 
-  const firstDue = $derived(flat.find((d) => d.depth === 0 && total(d) > 0))
+  const firstDue = $derived(flat.find((d) => d.depth === 0 && !d.archived && total(d) > 0))
+  const archived = $derived(flat.filter((d) => d.archived && d.depth === 0))
+  let showArchive = $state(false)
+
+  // Drag & drop by the grip: onto a row's upper or lower edge = before or after it, onto its middle = into it,
+  // onto the archive = archived. Pointer events, so it works with a finger too.
+  // ponytail: the page does not scroll while dragging; add edge scrolling if deck lists outgrow the screen
+  let drag = $state(null) // { d, x, y, over: deck id | 'archive' | null, pos: 'before' | 'into' | 'after' }
+  const within = (x, d) => x.id === d.id || x.name.startsWith(d.name + '::')
+
+  function dragStart(e, d) {
+    if (e.button) return
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    menuFor = null
+    drag = { d, x: e.clientX, y: e.clientY, over: null, pos: null }
+  }
+
+  function dragMove(e) {
+    if (!drag) return
+    const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-deck], [data-archive]')
+    const target = el && flat.find((x) => String(x.id) === /** @type {HTMLElement} */ (el).dataset.deck)
+    let over = null, pos = null
+    if (el && !target) over = 'archive'
+    else if (target && !within(target, drag.d)) {
+      const r = el.getBoundingClientRect(), f = (e.clientY - r.top) / r.height
+      // nothing goes into a filtered deck, and a filtered deck stays at the top level, as in Anki
+      const into = !target.filtered && !drag.d.filtered
+      pos = into ? (f < 0.3 ? 'before' : f > 0.7 ? 'after' : 'into') : f < 0.5 ? 'before' : 'after'
+      if (into || target.depth === 0) over = target.id
+    }
+    drag = { ...drag, x: e.clientX, y: e.clientY, over, pos }
+  }
+
+  async function dragEnd() {
+    if (!drag) return
+    const { d, over, pos } = drag
+    drag = null
+    if (over === 'archive') return run(() => api.set_archived(d.id, true), t('„{name}“ ist jetzt im Archiv', { name: d.short }))
+    const target = flat.find((x) => x.id === over)
+    if (!target) return
+    const rest = flat.filter((x) => !within(x, d))
+    let i = rest.indexOf(target) // before the target, or behind it and everything in it
+    if (pos !== 'before') do i++; while (rest[i]?.depth > target.depth)
+    const ids = (xs) => xs.map((x) => x.id)
+    await run(() => api.move_deck(d.id, pos === 'into' ? target.id : target.parent, [...ids(rest.slice(0, i)), ...ids(flat.filter((x) => within(x, d))), ...ids(rest.slice(i))]))
+  }
 
   function onKey(e) {
     if ((e.target instanceof Element && e.target.closest('input, textarea, select')) || e.metaKey || e.ctrlKey) return
@@ -155,9 +201,11 @@
       </thead>
       <tbody>
         {#each rows as d (d.id)}
-          <tr>
+          <tr data-deck={d.id} class:dragged={drag?.d.id === d.id} class={drag?.over === d.id ? `drop-${drag.pos}` : ''}>
             <td class="name-cell">
               <span class="deck" style:padding-left="{d.depth * 22}px">
+                <span class="grip" role="button" tabindex="-1" aria-label={t('Stapel verschieben')} title={t('Ziehen zum Verschieben')}
+                  onpointerdown={(e) => dragStart(e, d)} onpointermove={dragMove} onpointerup={dragEnd} onpointercancel={() => (drag = null)}><GripVertical size={15} /></span>
                 {#if d.children.length}
                   <button class="plain twist" class:open={!d.collapsed} aria-label={d.collapsed ? t('Aufklappen') : t('Zuklappen')}
                     onclick={() => run(() => api.set_collapsed(d.id, !d.collapsed))}><ChevronRight size={15} /></button>
@@ -204,6 +252,7 @@
                         <button class="plain" onclick={() => onOptions(d)}>{t('Optionen')}</button>
                         <button class="plain" onclick={() => { creating = true; newName = d.name + '::'; menuFor = null }}>{t('Unterstapel anlegen')}</button>
                         <button class="plain" onclick={() => exportDeck(d)}>{t('Als .apkg exportieren')}</button>
+                        <button class="plain" onclick={() => { menuFor = null; run(() => api.set_archived(d.id, true), t('„{name}“ ist jetzt im Archiv', { name: d.short })) }}>{t('Archivieren')}</button>
                         <button class="plain del" onclick={() => reset(d)} title={t('Alle Karten (auch in Unterstapeln) werden wieder neu, Lernverlauf bleibt in der Statistik')}>
                           {confirmReset === d.id ? t('Wirklich alles zurücksetzen?') : t('Lernstand zurücksetzen')}
                         </button>
@@ -221,6 +270,28 @@
         {/each}
       </tbody>
     </table>
+    {#if archived.length || drag}
+      <div class="archive" class:over={drag?.over === 'archive'} data-archive>
+        <button class="plain ahead" aria-expanded={showArchive} disabled={!archived.length} onclick={() => (showArchive = !showArchive)}>
+          <Archive size={16} />{t('Archiv')} <span class="num">{archived.length || ''}</span>
+          {#if drag}<span class="hint">{t('Hier ablegen zum Archivieren')}</span>{/if}
+        </button>
+        {#if showArchive}
+          {#each archived as d (d.id)}
+            <div class="arow">
+              <span class="chip" style:background={d.hue}></span>
+              <button class="plain dname" onclick={() => onStudy(d)} title={t('{name} lernen', { name: d.name })}>{d.short}</button>
+              <span class="num muted">{total(d) ? t('{n} fällig', { n: total(d) }) : ''}</span>
+              <button class="ghost sm" onclick={() => run(() => api.set_archived(d.id, false), t('„{name}“ ist wieder bei den Stapeln', { name: d.short }))}>{t('Zurückholen')}</button>
+            </div>
+          {/each}
+          <p class="muted small">{t('Archivierte Stapel zählen nicht zu den fälligen Karten und fehlen im Lernplan. Ihre Karten und ihr Lernstand bleiben erhalten.')}</p>
+        {/if}
+      </div>
+    {/if}
+    {#if drag}
+      <div class="ghost-row" style:left="{drag.x + 14}px" style:top="{drag.y + 10}px" aria-hidden="true">{drag.d.short}</div>
+    {/if}
     <div class="new-deck">
       {#if creating}
         <!-- svelte-ignore a11y_autofocus -->
@@ -275,6 +346,23 @@
     height: auto; min-height: 30px; min-width: 0; white-space: normal; text-align: left; line-height: 1.3; overflow-wrap: break-word;
   }
   .short { display: none; }
+  .grip { display: grid; place-items: center; width: 18px; height: 30px; margin: 0 -4px 0 -6px; flex: none; color: var(--ink-3); cursor: grab; touch-action: none; opacity: 0; transition: opacity 120ms var(--ease); }
+  tr:hover .grip, .grip:focus-visible { opacity: 1; }
+  @media (hover: none) { .grip { opacity: 0.6; } }
+  tr.dragged { opacity: 0.4; }
+  tr.drop-before td { box-shadow: inset 0 2px 0 var(--ink); }
+  tr.drop-after td { box-shadow: inset 0 -2px 0 var(--ink); }
+  tr.drop-into td { background: var(--paper-3); }
+  .ghost-row { position: fixed; z-index: 50; pointer-events: none; padding: 6px 12px; border-radius: var(--radius); background: var(--ink); color: var(--paper); font-size: 14px; font-weight: 600; box-shadow: 0 8px 24px rgb(0 0 0 / 0.2); max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .archive { margin-top: 14px; border: 1px dashed transparent; border-radius: 12px; display: flex; flex-direction: column; gap: 2px; max-width: 860px; transition: background 120ms var(--ease), border-color 120ms var(--ease); }
+  .archive:has(.hint) { border-color: var(--rule-2); }
+  .archive.over { background: var(--paper-3); border-color: var(--ink); }
+  .ahead { justify-content: flex-start; color: var(--ink-2); font-weight: 600; width: 100%; height: 40px; }
+  .ahead:disabled { opacity: 1; }
+  .ahead .hint { margin-left: auto; font-weight: 500; }
+  .arow { display: flex; align-items: center; gap: 8px; padding: 4px 8px 4px 12px; }
+  .arow .dname { margin-right: auto; }
+  .archive .small { font-size: 13px; padding: 6px 12px 10px; }
   .dname.top { font-weight: 650; }
   td { font-size: 16px; padding: 10px 12px; }
   .c-new { color: var(--new); font-weight: 650; }
