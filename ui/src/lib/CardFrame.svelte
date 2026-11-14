@@ -4,7 +4,17 @@
   let { html, css, ord = 0, onkey = null, ontyped = null, onswipe = null, autoplay = true, hideAudio = false } = $props()
 
   let frame = $state()
-  const dark = document.documentElement.dataset.theme === 'dark'
+  // a theme change restyles the shown card in place (a new srcdoc would reload it and lose typed input)
+  const root = document.documentElement
+  let dark = root.dataset.theme === 'dark'
+  $effect(() => {
+    const mo = new MutationObserver(() => {
+      dark = root.dataset.theme === 'dark'
+      frame?.contentWindow?.postMessage({ dark }, '*')
+    })
+    mo.observe(root, { attributeFilter: ['data-theme'] })
+    return () => mo.disconnect()
+  })
   // Anki's MathJax delimiters, rendered with KaTeX; JSON keeps the backslashes intact inside the frame's script
   const MATH = JSON.stringify([{ left: '\\(', right: '\\)', display: false }, { left: '\\[', right: '\\]', display: true }])
   const katex = $derived(/\\\(|\\\[/.test(html) ? `<link rel="stylesheet" href="${location.origin}/katex/katex.min.css">
@@ -41,6 +51,7 @@
     if ((e.metaKey || e.ctrlKey) && (/^[0-7]$/.test(e.key) || e.altKey || e.shiftKey)) e.preventDefault() // the reviewer's flag/menu shortcuts
     parent.postMessage({ key: e.key, code: e.code, meta: e.metaKey || e.ctrlKey, alt: e.altKey, shift: e.shiftKey }, '*')
   })
+  addEventListener('message', (e) => typeof e.data?.dark === 'boolean' && ['nightMode', 'night_mode'].forEach((c) => document.body.classList.toggle(c, e.data.dark)))
   addEventListener('input', (e) => e.target.id === 'typeans' && parent.postMessage({ typed: e.target.value }, '*'))
   // phone: tap and horizontal swipes go to the reviewer (Study.svelte); vertical moves stay scrolling
   // ponytail: no drag animation, the card just changes; add one if swipes feel too blind

@@ -1321,7 +1321,7 @@ class Core:
             total = passed + v.get("youngFailed", 0) + v.get("matureFailed", 0)
             retention[k] = {"pct": round(100 * passed / total, 1) if total else None, "total": total}
 
-        cc = g.get("cardCounts", {}).get("includingInactive", {})
+        cc = g.get("cardCounts", {}).get("excludingInactive", {})  # "including" folds suspended/buried into the other counts
         hours = [{"total": h.get("total", 0), "correct": h.get("correct", 0)} for h in g.get("hours", {}).get(period, [])]
         correct_today = today.get("correctCount", 0)
         hard_wrong = self.features()["hard_wrong"]

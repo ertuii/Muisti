@@ -2,7 +2,7 @@
 // (default preset, values read from describe_next_states in a fresh collection).
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { limits, label, outcomes, queue, newOrderFor, timing, revlogFor } from './sched.js'
+import { limits, label, outcomes, queue, newOrderFor, timing, revlogFor, setDue } from './sched.js'
 import stock from './stock.json' with { type: 'json' }
 
 const conf = stock.deck_configs[0]
@@ -122,4 +122,13 @@ test('an individual deck: the limit comes from its own config', () => {
   const own = { ...conf, new: { ...conf.new, perDay: 4 } }
   assert.equal(limits({ ...deck, newLimit: null, newToday: [t.today, 1] }, own, t.today).new, 3)
   assert.equal(limits({ ...deck, newLimit: null, newLimitToday: { limit: 2, today: t.today } }, own, t.today).new, 2)
+})
+
+test('set due date: new card becomes a review due then; a review keeps its interval unless "!"', () => {
+  assert.deepEqual((({ type, queue, due, ivl }) => ({ type, queue, due, ivl }))(setDue(newCard, '3', t)), { type: 2, queue: 2, due: 103, ivl: 3 })
+  const rev = { ...newCard, type: 2, queue: 2, ivl: 20, due: 90, factor: 2300 }
+  assert.equal(setDue(rev, '0', t).ivl, 20)
+  assert.equal(setDue(rev, '5!', t).ivl, 5)
+  assert.equal(setDue(rev, '1-7', t, () => 0.99).due, 107)
+  assert.equal(setDue({ ...rev, did: 9, odid: 1, odue: 90, due: -1 }, '2', t).did, 1) // home from a filtered deck
 })

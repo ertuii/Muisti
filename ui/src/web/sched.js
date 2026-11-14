@@ -257,6 +257,21 @@ export function revlogFor(before, res, ease, ms, now = Date.now()) {
   }
 }
 
+/**
+ * Anki's "Set Due Date" for one card: `days` is "3", "1-7" (a random day in the range) or "3!" (also sets the
+ * interval). The card becomes a review card due then; from a filtered deck it goes home.
+ * ponytail: no manual revlog entry and no undo, unlike the desktop
+ */
+export function setDue(card, days, t, rand = Math.random) {
+  const m = /^(\d+)(?:-(\d+))?(!?)$/.exec(days)
+  const lo = Number(m[1]), hi = Number(m[2] ?? m[1]), force = m[3]
+  const n = Math.min(lo, hi) + Math.floor(rand() * (Math.abs(hi - lo) + 1))
+  const data = JSON.parse(card.data || '{}')
+  const ivl = data.s && data.lrt ? Math.floor((t.cutoff - data.lrt) / DAY) + n // FSRS: the time since the last review counts
+    : force || (card.type !== 2 && card.type !== 3) ? n : card.ivl
+  return { ...card, did: card.odid || card.did, odid: 0, odue: 0, type: 2, queue: 2, left: 0, due: t.today + n, ivl: Math.max(1, ivl), factor: card.factor || 2500 }
+}
+
 /** Anki's leech rule: every `leechFails` lapses (then every half of it) → tag, and suspend if set so. */
 export function isLeech(card, conf) {
   const n = conf.lapse.leechFails

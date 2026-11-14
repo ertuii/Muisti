@@ -4,7 +4,7 @@
 // worker (web-api/worker.py), which runs core.py itself: api.js sends every method this file lacks there.
 import { S, write, pull, flush, save, sb, mediaUrls, uploadMedia, unsynced, userId } from './db.js'
 import { renderCard, stripHtml, clozeNumbers, clozeTexts, compareAnswer } from './render.js'
-import { timing, limits, queue, newOrderFor, outcomes, label, revlogFor, isLeech } from './sched.js'
+import { timing, limits, queue, newOrderFor, outcomes, label, revlogFor, isLeech, setDue } from './sched.js'
 import { search as runSearch } from './search.js'
 import { lang, t as tr } from '../lib/i18n.js'
 
@@ -447,6 +447,11 @@ export function forget_cards(card_ids) {
     return { ...c, type: 0, queue: 0, due: data.pos ?? c.due, ivl: 0, factor: 0, reps: 0, lapses: 0, left: 0, data: JSON.stringify({ pos: data.pos }) }
   }))
   return card_ids.length
+}
+
+export function set_due_date(card_ids, days) {
+  const tm = t()
+  saveCards(card_ids.map((id) => setDue(S.cards.get(id), days, tm)))
 }
 
 // ---------- inbox (cards Claude made on the desktop) ----------

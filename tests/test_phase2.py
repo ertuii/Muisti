@@ -41,6 +41,11 @@ def test_phase2():
     # statistics
     s = core.statistics(None, 30)
     assert len(s["future"]) == 30 and s["card_counts"]["new"] == 5
+    cid = core.search("")[0]["card_id"]
+    core.suspend([cid])
+    cc = core.statistics(None, 30)["card_counts"]
+    assert cc["suspended"] == 1 and cc["new"] == 4
+    core.suspend([cid], False)
 
     # backup + restore brings back the old state
     core.backup(True)
