@@ -307,17 +307,17 @@ export function suspend_note(note_id) {
 
 const cardsOf = (nid) => [...S.cards.values()].filter((c) => c.nid === nid)
 
-// Anki unburies at the start of a new day; the web does it when the day changes
+// Anki unburies at the start of a new day; the web does it when the day changes. Same config key as Anki
+// ("lastUnburied"), so desktop and web don't unbury what the other buried today.
 let unburiedOn = null
 function unburyIfNewDay() {
   const today = t().today
   if (unburiedOn === today) return
   unburiedOn = today
+  if (cfg('lastUnburied', -1) >= today) return
   const buried = [...S.cards.values()].filter((c) => c.queue === -2 || c.queue === -3)
-  if (buried.length && cfg('_lastUnburied', -1) < today) {
-    saveCards(buried.map((c) => ({ ...c, queue: homeQueue(c) })))
-    setCfg('_lastUnburied', today)
-  }
+  if (buried.length) saveCards(buried.map((c) => ({ ...c, queue: homeQueue(c) })))
+  setCfg('lastUnburied', today) // also when nothing was buried, or a card buried later today comes back on reload
 }
 
 // ---------- notes ----------
