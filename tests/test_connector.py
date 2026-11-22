@@ -32,6 +32,8 @@ with TestClient(connector.app) as c:
     assert rpc(c, "tools/list", token="bad").status_code == 401
     assert "oauth-protected-resource" in rpc(c, "tools/list", token=None).headers["www-authenticate"]
     assert c.get("/.well-known/oauth-protected-resource/mcp").json()["authorization_servers"][0].endswith("/auth/v1")
+    r = c.get("/mcp", headers={**HEAD, "Accept": "text/event-stream"})  # no empty SSE stream held open
+    assert r.status_code == 405 and r.headers["allow"] == "POST, DELETE" and r.content == b""
 
     names = {t["name"] for t in rpc(c, "tools/list").json()["result"]["tools"]}
     assert "add_notes" in names and "list_decks" in names

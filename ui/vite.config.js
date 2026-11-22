@@ -29,8 +29,8 @@ export default defineConfig(({ mode }) => {
             writeFileSync(`${outDir}/vercel.json`, JSON.stringify({
               // the worker (web-api/, added by web-api/bundle.sh): a cold start pulls a whole collection once
               functions: {
-                'api/worker.py': { maxDuration: 300, excludeFiles: '{assets/**,katex/**,index.html,icon*,version.json,sw.js,manifest.webmanifest}' },
-                'api/connector.py': { maxDuration: 300, excludeFiles: '{assets/**,katex/**,index.html,icon*,version.json,sw.js,manifest.webmanifest}' },
+                'api/worker.py': { maxDuration: 300, memory: 1024, excludeFiles: '{assets/**,katex/**,index.html,icon*,version.json,sw.js,manifest.webmanifest}' },
+                'api/connector.py': { maxDuration: 300, memory: 1024, excludeFiles: '{assets/**,katex/**,index.html,icon*,version.json,sw.js,manifest.webmanifest}' },
               },
               // Claude's connector (web-api/connector.py) at a short address; the consent page is the app itself
               rewrites: [

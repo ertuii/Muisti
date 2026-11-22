@@ -76,4 +76,10 @@ async def app(scope, receive, send):
     """Vercel rewrites the root metadata path here; route it by what it asks for, whatever path arrives."""
     if scope["type"] == "http":
         scope = {**scope, "path": META if "oauth-protected-resource" in scope["path"] else PATH}
+        # stateless, so no server push: the SDK would still open an empty SSE stream on GET and hold the
+        # function until maxDuration. 405 is the spec's answer for "no stream offered".
+        if scope["path"] == PATH and scope["method"] == "GET":
+            await send({"type": "http.response.start", "status": 405, "headers": [(b"allow", b"POST, DELETE")]})
+            await send({"type": "http.response.body", "body": b""})
+            return
     await _app(scope, receive, send)
