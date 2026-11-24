@@ -307,17 +307,19 @@ export function suspend_note(note_id) {
 
 const cardsOf = (nid) => [...S.cards.values()].filter((c) => c.nid === nid)
 
-// Anki unburies at the start of a new day; the web does it when the day changes. Same config key as Anki
-// ("lastUnburied"), so desktop and web don't unbury what the other buried today.
+// Anki unburies at the start of a new day; the web does it when the day changes, for every card buried before
+// today (by its mod), whoever buried it. Not gated on Anki's "lastUnburied": the desktop unburies its own copy
+// without syncing those rows but syncs that key, so the web would keep them buried.
 let unburiedOn = null
 function unburyIfNewDay() {
-  const today = t().today
-  if (unburiedOn === today) return
-  unburiedOn = today
-  if (cfg('lastUnburied', -1) >= today) return
-  const buried = [...S.cards.values()].filter((c) => c.queue === -2 || c.queue === -3)
+  const tm = t()
+  if (unburiedOn === tm.today) return
+  unburiedOn = tm.today
+  const dayStart = tm.cutoff - 86400 // ponytail: an hour off on DST days, a card buried in that hour comes back early
+  const buried = [...S.cards.values()].filter((c) => (c.queue === -2 || c.queue === -3) && c.mod < dayStart)
   if (buried.length) saveCards(buried.map((c) => ({ ...c, queue: homeQueue(c) })))
-  setCfg('lastUnburied', today) // also when nothing was buried, or a card buried later today comes back on reload
+  // the key still tells the desktop it's done, so it keeps what the web buries today
+  if (cfg('lastUnburied', -1) < tm.today) setCfg('lastUnburied', tm.today)
 }
 
 // ---------- notes ----------
