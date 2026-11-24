@@ -1,0 +1,20 @@
+# Muisti's block in the server's Caddyfile (/opt/n8n/Caddyfile, Caddy runs in Docker next to n8n).
+# Same routes and cache rules as the generated vercel.json (ui/vite.config.js).
+app.muisti.de {
+	encode zstd gzip
+	handle /api/worker {
+		reverse_proxy host.docker.internal:4322
+	}
+	@connector path /mcp /.well-known/oauth-protected-resource/mcp
+	handle @connector {
+		reverse_proxy host.docker.internal:4323
+	}
+	handle {
+		root * /srv/muisti/web
+		@entry path / /index.html /version.json /sw.js /manifest.webmanifest
+		header @entry Cache-Control no-store
+		header /assets/* Cache-Control "public, max-age=31536000, immutable"
+		rewrite /oauth/consent /index.html
+		file_server
+	}
+}

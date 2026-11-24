@@ -101,9 +101,11 @@ jobs:
       - run: npm ci && npm run build:web
         working-directory: ui
       - run: web-api/bundle.sh  # the worker (Anki's engine for statistics, options, import …) into the same folder
-      # the built folder goes up as is (static files plus the worker), so it's exactly this tag
-      - run: npx --yes vercel@62.7.0 deploy ui/dist-web --prod --yes --token "$VERCEL_TOKEN"
+      # the built folder goes to the server as is (static files plus the worker), so it's exactly this tag
+      - run: |
+          install -m 700 -d ~/.ssh
+          echo "$KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          echo "5.231.26.190 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINzPJMjTr0F0Hygk+pP2cBleAXT5NwvvsNEmHEiaWZ/t" > ~/.ssh/known_hosts
+          web-api/deploy.sh
         env:
-          VERCEL_TOKEN: "${{ secrets.VERCEL_TOKEN }}"
-          VERCEL_ORG_ID: team_VRLdZhwAEKwsBtKcCcQ98w7n
-          VERCEL_PROJECT_ID: prj_vGZdPmpVrsi6bLUrBBS5qDHJauGn
+          KEY: "${{ secrets.MUISTI_DEPLOY_KEY }}"

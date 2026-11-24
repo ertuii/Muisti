@@ -42,7 +42,7 @@ MCP_ALLOWED = {
     "card_info", "stats", "statistics", "create_filtered_deck",
 }
 STORAGE = "storage:"  # path arguments that name a file in the user's storage folder (uploads, exports)
-MAX_CACHED = 20  # ponytail: collections kept per warm instance, oldest dropped first; /tmp is 500 MB
+MAX_CACHED = int(os.environ.get("MUISTI_MAX_CACHED", 20))  # ponytail: collections kept warm, oldest dropped first
 
 
 class TokenAccount:

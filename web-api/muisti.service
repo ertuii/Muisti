@@ -1,0 +1,26 @@
+# /etc/systemd/system/muisti.service on the server: worker + Claude connector (web-api/dev.py), deployed by deploy.sh.
+# Listens on the Docker bridge only (172.17.0.1), the Caddy container proxies to it (web-api/Caddyfile).
+[Unit]
+Description=Muisti web worker and Claude connector
+After=docker.service network-online.target
+Wants=docker.service
+
+[Service]
+User=muisti
+WorkingDirectory=/srv/muisti
+Environment=MUISTI_BIND=172.17.0.1 MUISTI_WEB_URL=https://app.muisti.de MUISTI_MAX_CACHED=5
+# collections live on disk, not in the tmpfs /tmp
+Environment=TMPDIR=/srv/muisti/data PYTHONUNBUFFERED=1
+ExecStart=/srv/muisti/venv/bin/python api/dev.py
+Restart=always
+RestartSec=3
+# the server also runs n8n: Muisti restarts rather than starve it
+MemoryMax=1200M
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/muisti/data
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
