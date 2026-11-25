@@ -9,7 +9,7 @@ import { search as runSearch } from './search.js'
 import { lang, t as tr } from '../lib/i18n.js'
 
 const INBOX_TAG = 'Claude-Eingang'
-const FEATURES = { exams: false, plan: false, weak: false, inbox: true, hard_wrong: false }
+const FEATURES = { exams: false, plan: false, weak: false, inbox: true, hard_wrong: false, pomodoro: false }
 const EXAMS = 'betteranki.exams' // {deck_id: "YYYY-MM-DD"}, same key as the desktop
 const EXAM_AUTO = 'muisti.examAuto' // ids of decks whose new-cards limit follows the pace of their exam
 const ORDER = 'muisti.deckOrder' // every deck id in the order shown on "Heute"
@@ -571,6 +571,17 @@ export function save_features(f) {
 }
 export const theme = () => cfg('betteranki.theme', 'system')
 export const set_theme = (v) => setCfg('betteranki.theme', v)
+const POMODORO = { focus: 25, short: 5, long: 15, every: 4 } // same as core.py
+export const pomodoro = () => ({ ...POMODORO, ...cfg('betteranki.pomodoro', {}) })
+export function set_pomodoro(p) {
+  const out = {}
+  for (const k of Object.keys(POMODORO)) {
+    const v = Math.round(Number(p[k] ?? POMODORO[k]))
+    if (!(v >= 1 && v <= (k === 'every' ? 10 : 120))) throw new Error(`${k}: ${p[k]}`)
+    out[k] = v
+  }
+  setCfg('betteranki.pomodoro', out)
+}
 export const language = () => cfg('betteranki.lang', null)
 export const set_language = (v) => (setCfg('betteranki.lang', v), save()) // Settings reloads right after
 

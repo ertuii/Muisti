@@ -805,5 +805,22 @@
  "„{name}“ ist wieder bei den Stapeln": "“{name}” is back with your decks",
  "Zurückholen": "Restore",
  "Archivierte Stapel zählen nicht zu den fälligen Karten und fehlen im Lernplan. Ihre Karten und ihr Lernstand bleiben erhalten.": "Archived decks don't count towards the cards due and are left out of the study plan. Their cards and progress are kept.",
- "Dort gibt es schon einen Stapel mit diesem Namen.": "There is already a deck with this name there."
+ "Dort gibt es schon einen Stapel mit diesem Namen.": "There is already a deck with this name there.",
+ "Bitte eine ganze Zahl im erlaubten Bereich eingeben.": "Please enter a whole number in the allowed range.",
+ "Lernzeit": "Study time",
+ "{n} min in diesem Zeitraum, Ø {a} min pro Lerntag.": "{n} min in this period, avg. {a} min per study day.",
+ "Minuten": "Minutes",
+ "Pomodoro starten": "Start Pomodoro",
+ "Pomodoro stoppen": "Stop Pomodoro",
+ "Pause": "Break",
+ "Lange Pause": "Long break",
+ "Steh kurz auf, trink etwas. Danach geht es mit der nächsten Runde weiter.": "Stand up for a moment, have a drink. Then the next round begins.",
+ "Pause überspringen": "Skip break",
+ "Lernen beenden": "Stop studying",
+ "Pomodoro-Timer": "Pomodoro timer",
+ "Beim Lernen über das Uhr-Symbol starten: lernen, dann Pause. Die Dauern stellst du in den Einstellungen ein.": "Start it with the clock icon while studying: study, then take a break. Set the durations in the settings.",
+ "Lernen (Minuten)": "Study (minutes)",
+ "Kurze Pause (Minuten)": "Short break (minutes)",
+ "Lange Pause (Minuten)": "Long break (minutes)",
+ "Lange Pause nach … Runden": "Long break after … rounds"
 }

@@ -859,7 +859,8 @@ class Core:
     # ---------- optional features (stored in the collection, so they travel with backups and sync) ----------
     # keys keep the old "betteranki." prefix: renaming them would drop settings and exam dates from existing collections
 
-    _FEATURES = {"exams": False, "plan": False, "weak": False, "inbox": True, "hard_wrong": False}
+    _FEATURES = {"exams": False, "plan": False, "weak": False, "inbox": True, "hard_wrong": False, "pomodoro": False}
+    _POMODORO = {"focus": 25, "short": 5, "long": 15, "every": 4}  # minutes; "every": a long break after n rounds
 
     @_locked
     def features(self) -> dict:
@@ -878,6 +879,20 @@ class Core:
         if theme not in ("system", "light", "dark"):
             raise ValueError(theme)
         self._col.set_config("betteranki.theme", theme)
+
+    @_locked
+    def pomodoro(self) -> dict:
+        return {**self._POMODORO, **self._col.get_config("betteranki.pomodoro", {})}
+
+    @_locked
+    def set_pomodoro(self, p: dict) -> None:
+        out = {}
+        for k in self._POMODORO:
+            v = int(p.get(k, self._POMODORO[k]))
+            if not 1 <= v <= (10 if k == "every" else 120):
+                raise ValueError(f"{k}: {v}")
+            out[k] = v
+        self._col.set_config("betteranki.pomodoro", out)
 
     @_locked
     def language(self) -> str | None:
@@ -1366,6 +1381,10 @@ class Core:
         for k, v in g.get("reviews", {}).get("count", {}).items():
             if -days < int(k) <= 0:
                 reviews[days - 1 + int(k)].update(v)
+        minutes = [0.0] * days  # study time per day, same offsets as reviews
+        for k, v in g.get("reviews", {}).get("time", {}).items():
+            if -days < int(k) <= 0:
+                minutes[days - 1 + int(k)] = round(sum(v.values()) / 60000, 1)
 
         buckets = [(1, 1, "1 T"), (2, 2, "2 T"), (3, 3, "3 T"), (4, 7, "4–7 T"), (8, 14, "1–2 W"), (15, 30, "2–4 W"),
                    (31, 90, "1–3 M"), (91, 180, "3–6 M"), (181, 365, "6–12 M"), (366, 10**9, "> 1 J")]
@@ -1412,6 +1431,7 @@ class Core:
             },
             "future": future,
             "reviews": reviews,
+            "minutes": minutes,
             "intervals": intervals,
             "card_counts": {k: cc.get(src, 0) for k, src in [("new", "newCards"), ("learn", "learn"), ("relearn", "relearn"),
                             ("young", "young"), ("mature", "mature"), ("suspended", "suspended"), ("buried", "buried")]},

@@ -14,7 +14,15 @@ core = Core(collection_path())
 col = core._col
 
 # features: off by default except the inbox
-assert core.features() == {"exams": False, "plan": False, "weak": False, "inbox": True, "hard_wrong": False}
+assert core.features() == {"exams": False, "plan": False, "weak": False, "inbox": True, "hard_wrong": False, "pomodoro": False}
+assert core.pomodoro() == {"focus": 25, "short": 5, "long": 15, "every": 4}
+core.set_pomodoro({"focus": "50", "short": 10})
+assert core.pomodoro() == {"focus": 50, "short": 10, "long": 15, "every": 4}
+try:
+    core.set_pomodoro({"focus": 0})
+    raise AssertionError("focus 0 accepted")
+except ValueError:
+    pass
 core.save_features({"exams": True, "plan": True, "weak": True})
 assert core.features()["exams"] and core.overview()["features"]["weak"]
 

@@ -218,7 +218,7 @@
     {#if view.name === 'today'}
       <Today {decks} {flat} {overview} {run} {notify} onPlan={studyPlan} onInbox={() => go('inbox')} onOptions={(d) => go('options', { deckId: d.id })} onPrelearn={prelearn} onStudy={(d) => go('study', { deckId: d.id, deckName: d.name })} onAdd={() => go('add')} />
     {:else if view.name === 'study'}
-      <Study deckId={view.deckId} deckName={view.deckName} temporary={view.temporary} practice={view.practice} plan={view.plan} minutes={view.minutes} {flat} {notify} onExit={() => go('today')} onOptions={(id) => go('options', { deckId: id })} />
+      <Study deckId={view.deckId} deckName={view.deckName} temporary={view.temporary} practice={view.practice} plan={view.plan} minutes={view.minutes} pomodoro={overview?.features.pomodoro} {flat} {notify} onExit={() => go('today')} onOptions={(id) => go('options', { deckId: id })} />
     {:else if view.name === 'add'}
       <div class="page"><h1>{t('Karten hinzufügen')}</h1><Editor {flat} {notify} onSaved={refresh} /></div>
     {:else if view.name === 'browse'}

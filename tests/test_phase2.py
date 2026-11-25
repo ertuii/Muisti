@@ -41,6 +41,7 @@ def test_phase2():
     # statistics
     s = core.statistics(None, 30)
     assert len(s["future"]) == 30 and s["card_counts"]["new"] == 5
+    assert len(s["minutes"]) == 30 and s["minutes"][-1] == s["today"]["minutes"]  # today is the last bar
     cid = core.search("")[0]["card_id"]
     core.suspend([cid])
     cc = core.statistics(None, 30)["card_counts"]

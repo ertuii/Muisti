@@ -82,6 +82,9 @@
   const futureRows = $derived(s ? s.future.map((n) => ({ n })) : [])
   const reviewTotal = $derived(s ? sum(s.reviews.map((r) => r.learn + r.relearn + r.young + r.mature)) : 0)
   const activeDays = $derived(s ? s.reviews.filter((r) => r.learn + r.relearn + r.young + r.mature > 0).length : 0)
+  const minuteRows = $derived(s?.minutes ? s.minutes.map((m) => ({ m })) : [])
+  const minuteTotal = $derived(Math.round(sum(minuteRows.map((r) => r.m))))
+  const minuteDays = $derived(minuteRows.filter((r) => r.m > 0).length)
   const cardTotal = $derived(s ? sum(Object.values(s.card_counts)) : 0)
 </script>
 
@@ -142,6 +145,15 @@
         <Bars rows={s.reviews} series={REVIEW_SERIES} labels={s.reviews.map((_, i) => dayLabel(i - days + 1))} {tickEvery}
           tip={(r, i) => `<b>${dayLabel(i - days + 1)}</b><br>${REVIEW_SERIES.filter((x) => r[x.key]).map((x) => `${x.label}: ${r[x.key]}`).join('<br>') || t('nichts gelernt')}`} />
       </section>
+
+      {#if s.minutes}
+        <section class="wide">
+          <h2>{t('Lernzeit')}</h2>
+          <p class="muted">{t('{n} min in diesem Zeitraum, Ø {a} min pro Lerntag.', { n: minuteTotal, a: minuteDays ? Math.round(minuteTotal / minuteDays) : 0 })}</p>
+          <Bars rows={minuteRows} series={[{ key: 'm', label: t('Minuten'), color: 'var(--s-young)' }]} labels={minuteRows.map((_, i) => dayLabel(i - days + 1))} {tickEvery}
+            tip={(r, i) => `<b>${dayLabel(i - days + 1)}</b><br>${r.m ? t('{n} min', { n: r.m.toLocaleString(lang) }) : t('nichts gelernt')}`} />
+        </section>
+      {/if}
 
       <section class="wide">
         <h2>{t('Prognose')}</h2>

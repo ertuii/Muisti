@@ -34,6 +34,7 @@ export const EXTRAS = [
   { key: 'plan', name: 'Lernplan', hint: 'Auf der Heute-Seite eine Dauer wählen und über alle Stapel lernen, Stapel mit naher Prüfung zuerst.' },
   { key: 'weak', name: 'Schwachstellen', hint: 'In der Statistik sehen, bei welchen Themen und Stapeln du am meisten vergisst, und gezielt üben.' },
   { key: 'inbox', name: 'Karten von Claude erst prüfen', hint: 'Neue Karten von Claude warten im Eingang, bis du sie übernimmst. Ausgeschaltet werden sie sofort gelernt.' },
+  { key: 'pomodoro', name: 'Pomodoro-Timer', hint: 'Beim Lernen über das Uhr-Symbol starten: lernen, dann Pause. Die Dauern stellst du in den Einstellungen ein.' },
 ]
 
 // Anki's card flags (0 = none); labels go through t()

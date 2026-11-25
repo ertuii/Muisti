@@ -102,6 +102,20 @@
       fail(e)
     }
   }
+  let pomo = $state(null) // pomodoro durations in minutes
+  const POMO_FIELDS = [
+    ['focus', 'Lernen (Minuten)', 120], ['short', 'Kurze Pause (Minuten)', 120],
+    ['long', 'Lange Pause (Minuten)', 120], ['every', 'Lange Pause nach … Runden', 10],
+  ]
+  async function savePomodoro() {
+    try {
+      await api.set_pomodoro($state.snapshot(pomo))
+      notify(t('Gespeichert'))
+    } catch (e) {
+      fail(t('Bitte eine ganze Zahl im erlaubten Bereich eingeben.'))
+      pomo = await api.pomodoro()
+    }
+  }
   let checking = $state(false)
 
   async function lookForUpdate() {
@@ -342,6 +356,7 @@
   load()
   api.app_version().then((v) => (version = v))
   api.features().then((f) => (features = f))
+  api.pomodoro().then((p) => (pomo = p))
 
   const EXTRAS = ALL_EXTRAS.map((x) => ({ ...x, name: t(x.name), hint: t(x.hint) }))
 </script>
@@ -393,6 +408,13 @@
           <label class="extra"><input type="checkbox" bind:checked={features[x.key]} onchange={saveFeatures} />
             <span><b>{x.name}</b><small class="muted">{x.hint}</small></span>
           </label>
+          {#if x.key === 'pomodoro' && features.pomodoro && pomo}
+            <div class="pomo">
+              {#each POMO_FIELDS as [k, label, max]}
+                <label>{t(label)}<input type="number" min="1" {max} step="1" bind:value={pomo[k]} onchange={savePomodoro} /></label>
+              {/each}
+            </div>
+          {/if}
         {/each}
       </div>
     </section>
@@ -696,6 +718,8 @@
   .extra input { margin-top: 3px; }
   .extra span { display: flex; flex-direction: column; gap: 2px; max-width: 62ch; }
   .extra small { font-size: 13px; }
+  .pomo { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 14px; margin-left: 28px; max-width: 640px; }
+  .pomo label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ink-2); }
   .row span { margin-right: 8px; }
   .login { display: flex; gap: 8px; flex-wrap: wrap; }
   .login input { flex: 1 1 200px; }

@@ -805,5 +805,22 @@
  "„{name}“ ist wieder bei den Stapeln": "«{name}» vuelve a estar entre tus mazos",
  "Zurückholen": "Recuperar",
  "Archivierte Stapel zählen nicht zu den fälligen Karten und fehlen im Lernplan. Ihre Karten und ihr Lernstand bleiben erhalten.": "Los mazos archivados no cuentan para las tarjetas pendientes ni aparecen en el plan de estudio. Sus tarjetas y su progreso se conservan.",
- "Dort gibt es schon einen Stapel mit diesem Namen.": "Ahí ya hay un mazo con ese nombre."
+ "Dort gibt es schon einen Stapel mit diesem Namen.": "Ahí ya hay un mazo con ese nombre.",
+ "Bitte eine ganze Zahl im erlaubten Bereich eingeben.": "Introduce un número entero dentro del rango permitido.",
+ "Lernzeit": "Tiempo de estudio",
+ "{n} min in diesem Zeitraum, Ø {a} min pro Lerntag.": "{n} min en este periodo, media de {a} min por día de estudio.",
+ "Minuten": "Minutos",
+ "Pomodoro starten": "Iniciar Pomodoro",
+ "Pomodoro stoppen": "Detener Pomodoro",
+ "Pause": "Pausa",
+ "Lange Pause": "Pausa larga",
+ "Steh kurz auf, trink etwas. Danach geht es mit der nächsten Runde weiter.": "Levántate un momento y bebe algo. Después empieza la siguiente ronda.",
+ "Pause überspringen": "Saltar pausa",
+ "Lernen beenden": "Terminar de estudiar",
+ "Pomodoro-Timer": "Temporizador Pomodoro",
+ "Beim Lernen über das Uhr-Symbol starten: lernen, dann Pause. Die Dauern stellst du in den Einstellungen ein.": "Inícialo con el icono del reloj mientras estudias: estudia y luego descansa. Las duraciones se ajustan en los ajustes.",
+ "Lernen (Minuten)": "Estudio (minutos)",
+ "Kurze Pause (Minuten)": "Pausa corta (minutos)",
+ "Lange Pause (Minuten)": "Pausa larga (minutos)",
+ "Lange Pause nach … Runden": "Pausa larga cada … rondas"
 }

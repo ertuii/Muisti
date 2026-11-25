@@ -1,14 +1,15 @@
 <script>
-  import { ArrowLeft, Pencil, Undo2, FastForward, EllipsisVertical, Flag } from '@lucide/svelte'
+  import { ArrowLeft, Pencil, Undo2, FastForward, EllipsisVertical, Flag, Timer } from '@lucide/svelte'
   import { api, FLAG_COLORS } from './api.js'
   import Editor from './Editor.svelte'
   import CardFrame from './CardFrame.svelte'
   import CardInfo from './CardInfo.svelte'
   import { t, tmsg } from './i18n.js'
+  import * as pomo from './pomodoro.js'
 
   // temporary: a pre-learn/practice deck, removed again when the session ends
   // plan: the study plan across all decks (nearest exam first) for `minutes`
-  let { deckId, deckName, flat, notify, onExit, onOptions, temporary = false, practice = false, plan = false, minutes = 0 } = $props()
+  let { deckId, deckName, flat, notify, onExit, onOptions, temporary = false, practice = false, plan = false, minutes = 0, pomodoro = false } = $props()
 
   let card = $state(null)
   let done = $state(false)
@@ -39,7 +40,40 @@
 
   api.preferences().then((p) => (prefs = p.reviewing))
 
+  // pomodoro (extra): the timer itself lives in pomodoro.js and keeps running when this screen closes
+  let pomoCfg = pomo.DEFAULTS
+  let pomoPhase = $state(pomo.pomo.phase)
+  let pomoLeft = $state(pomo.left(Date.now()))
+  api.pomodoro().then((c) => (pomoCfg = c))
+  function pomoSync(now = Date.now()) {
+    if (pomo.tick(now, pomoCfg) === 'break') beep()
+    pomoPhase = pomo.pomo.phase
+    pomoLeft = pomo.left(now)
+  }
+  function pomoToggle() {
+    if (pomo.pomo.phase === 'idle') pomo.start(Date.now(), pomoCfg)
+    else pomo.stop()
+    pomoSync()
+  }
+  function pomoSkip() {
+    pomo.skip(Date.now(), pomoCfg)
+    pomoSync()
+  }
+  function beep() {
+    try {
+      const a = new AudioContext(), o = a.createOscillator(), g = a.createGain()
+      o.frequency.value = 880
+      g.gain.setValueAtTime(0.2, a.currentTime)
+      g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + 0.8)
+      o.connect(g).connect(a.destination)
+      o.start()
+      o.stop(a.currentTime + 0.8)
+      o.onended = () => a.close()
+    } catch {} // no sound is fine, the break screen still shows
+  }
+
   const tick = setInterval(() => {
+    if (pomodoro) pomoSync()
     if (plan && minutes) left = Math.max(0, minutes - Math.floor((Date.now() - sessionStart) / 60000))
     if (!card || (revealed && card.study.stop_timer_on_answer)) return
     elapsed = Math.min(card.study.cap_secs, Math.floor((Date.now() - shownAt) / 1000))
@@ -188,6 +222,7 @@
 
   function onKey(e) {
     if (editing) return
+    if (pomoPhase === 'break') return e.key === 'Escape' && exit() // the break screen covers the card
     if (info) return e.key === 'Escape' && (info = null)
     if (menu) return e.key === 'Escape' && (menu = false)
     const mod = e.metaKey || e.ctrlKey
@@ -236,6 +271,10 @@
           </div>
         {/if}
         {#if plan && minutes}<span class="timer num">{t('noch {n} min', { n: left })}</span>{/if}
+        {#if pomodoro}
+          <button class="plain pomo num" class:run={pomoPhase !== 'idle'} onclick={pomoToggle}
+            title={pomoPhase === 'idle' ? t('Pomodoro starten') : t('Pomodoro stoppen')}><Timer size={17} />{#if pomoPhase !== 'idle'}{clock(Math.ceil(pomoLeft / 1000))}{/if}</button>
+        {/if}
         {#if card.study.show_timer}<span class="timer num" class:capped={elapsed >= card.study.cap_secs}>{clock(elapsed)}</span>{/if}
       </div>
       <div class="tools">
@@ -315,6 +354,18 @@
   {/if}
 </div>
 
+{#if pomodoro && pomoPhase === 'break'}
+  <div class="pause" role="dialog" aria-modal="true" aria-label={t('Pause')}>
+    <h1>{pomo.pomo.long ? t('Lange Pause') : t('Pause')}</h1>
+    <p class="num big">{clock(Math.ceil(pomoLeft / 1000))}</p>
+    <p class="muted">{t('Steh kurz auf, trink etwas. Danach geht es mit der nächsten Runde weiter.')}</p>
+    <div class="row">
+      <button onclick={pomoSkip}>{t('Pause überspringen')}</button>
+      <button class="ghost" onclick={exit}>{t('Lernen beenden')}</button>
+    </div>
+  </div>
+{/if}
+
 {#if info}
   <div class="sheet-backdrop" onclick={(e) => e.target === e.currentTarget && (info = null)} role="presentation">
     <div class="sheet" role="dialog" aria-label={t('Kartenstatistik')}>
@@ -340,6 +391,12 @@
   .counts { display: flex; gap: 14px; font-weight: 650; font-size: 15px; }
   .timer { font-size: 14px; color: var(--ink-2); font-weight: 500; }
   .timer.capped { color: var(--m-red); }
+  .pomo { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--ink-2); font-weight: 500; }
+  .pomo.run { color: var(--ink); }
+  .pause { position: fixed; inset: 0; z-index: 50; background: var(--paper); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 24px; text-align: center; }
+  .pause .big { font-size: 64px; font-weight: 750; letter-spacing: -0.02em; margin: 0; }
+  .pause .muted { max-width: 44ch; }
+  .pause .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
   .tools .active { color: var(--paper); background: var(--ink); }
   .counts span { padding-bottom: 2px; border-bottom: 2px solid transparent; }
   .counts .cur { border-bottom-color: currentColor; }

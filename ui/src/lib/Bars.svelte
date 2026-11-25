@@ -1,6 +1,6 @@
 <script>
   // Vertical (stacked) bar chart in plain SVG with a hover tooltip per column.
-  import { t } from './i18n.js'
+  import { lang, t } from './i18n.js'
 
   let { rows, series, labels, tickEvery = 1, height = 160, tip, legend = series.length > 1 } = $props()
 
@@ -15,6 +15,7 @@
   const gap = $derived(rows.length > 60 ? 1 : 2)
   const barW = $derived(Math.max(1, (width - PAD_L - gap * (rows.length - 1)) / rows.length))
   const x = (i) => PAD_L + i * (barW + gap)
+  const tickLabel = (v) => v.toLocaleString(lang, { maximumFractionDigits: v < 10 ? 1 : 0 }) // minutes can be 0.5
   const h = (v) => (v / max) * (plotH - 8)
 
   function segs(r) {
@@ -38,8 +39,8 @@
   <svg {width} {height} role="img" aria-label={t('Balkendiagramm')}>
     <line class="grid" x1={PAD_L} x2={width} y1={plotH - h(max / 2)} y2={plotH - h(max / 2)} />
     <line class="grid" x1={PAD_L} x2={width} y1={plotH - h(max)} y2={plotH - h(max)} />
-    <text class="tick" x={PAD_L - 6} y={plotH - h(max) + 4} text-anchor="end">{Math.round(max)}</text>
-    <text class="tick" x={PAD_L - 6} y={plotH - h(max / 2) + 4} text-anchor="end">{Math.round(max / 2)}</text>
+    <text class="tick" x={PAD_L - 6} y={plotH - h(max) + 4} text-anchor="end">{tickLabel(max)}</text>
+    <text class="tick" x={PAD_L - 6} y={plotH - h(max / 2) + 4} text-anchor="end">{tickLabel(max / 2)}</text>
     {#each rows as r, i}
       <g class:dim={hover != null && hover !== i}>
         {#each segs(r) as s}
